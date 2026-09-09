@@ -13,7 +13,13 @@
   <style>
     .hero-slide { opacity: 0; transition: opacity .7s ease; }
     .hero-slide.is-active { opacity: 1; }
+    .hero.banner-carousel { height: min(615px, calc(100vh - 126px)); background: #0b332a; }
+    .hero.banner-carousel .hero-img { object-fit: cover; object-position: center; background: #0b332a; }
+    .hero.banner-carousel .hero-shade,
+    .hero.banner-carousel .hero-content,
+    .hero.banner-carousel .hero-card { display: none; }
     @media (prefers-reduced-motion: reduce) { .hero-slide { transition: none; } }
+    @media (max-width: 760px) { .hero.banner-carousel { height: min(590px, calc(100vh - 111px)); } }
   </style>
 </head>
 <body>
@@ -52,16 +58,21 @@
           .sort((first, second) => Number(first.displayOrder || 0) - Number(second.displayOrder || 0));
         if (!banners.length) return;
 
+        hero.classList.add('banner-carousel');
+        const slides = [{
+          imageUrl: firstSlide.currentSrc || firstSlide.src,
+          title: firstSlide.alt || 'Beacon Light School'
+        }, ...banners];
         const secondSlide = firstSlide.cloneNode(false);
         secondSlide.classList.add('hero-slide');
         firstSlide.classList.add('hero-slide', 'is-active');
         hero.insertBefore(secondSlide, hero.querySelector('.hero-shade'));
 
-        let bannerIndex = 0;
+        let bannerIndex = 1;
         let activeSlide = firstSlide;
         function showNextBanner() {
           const nextSlide = activeSlide === firstSlide ? secondSlide : firstSlide;
-          const banner = banners[bannerIndex];
+          const banner = slides[bannerIndex];
           const image = new Image();
           image.onload = () => {
             nextSlide.src = banner.imageUrl;
@@ -69,13 +80,12 @@
             nextSlide.classList.add('is-active');
             activeSlide.classList.remove('is-active');
             activeSlide = nextSlide;
-            bannerIndex = (bannerIndex + 1) % banners.length;
+            bannerIndex = (bannerIndex + 1) % slides.length;
           };
           image.src = banner.imageUrl;
         }
 
-        showNextBanner();
-        if (banners.length > 1) window.setInterval(showNextBanner, 5000);
+        if (slides.length > 1) window.setInterval(showNextBanner, 5000);
       } catch (error) {
         console.warn('Website banners could not be loaded.', error);
       }
