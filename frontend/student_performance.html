@@ -103,6 +103,26 @@
     const juniorSubjects = ['English','Urdu','Mathematics','Science','Social Study','Islamiyat','Nazra','Math'];
     const seniorSubjects = ['English','Urdu','Mathematics','Science','Social Study','Islamiyat','Nazra','Math'];
     const ratings = ['Excellent','Satisfactory','Needs Practice'];
+    const rubricSuggestions = {
+        modalExcellent: [
+            'Consistently demonstrates excellent understanding and completes work independently.',
+            'Applies learned concepts confidently and accurately.',
+            'Shows strong participation, effort, and attention to detail.',
+            'Completes tasks creatively with very little guidance.'
+        ],
+        modalSatisfactory: [
+            'Demonstrates a satisfactory understanding of the learning outcome.',
+            'Completes work with occasional guidance and support.',
+            'Shows steady progress and participates appropriately in class.',
+            'Applies most concepts correctly and is developing confidence.'
+        ],
+        modalNeedsPractice: [
+            'Needs additional practice to strengthen understanding of the concept.',
+            'Requires regular guidance to complete the task confidently.',
+            'Should improve accuracy and apply the skill more consistently.',
+            'Would benefit from revision and focused practice at home.'
+        ]
+    };
     const performanceMode = new URLSearchParams(location.search).get('section') || location.hash.replace(/^#/, '').trim();
     let students = [];
     let courses = [];
@@ -373,6 +393,7 @@
         if (modal) return modal;
         document.body.insertAdjacentHTML('beforeend', `<div class="performance-modal" id="performanceModal"><div class="performance-dialog"><div class="performance-dialog-head"><div><h2 id="performanceModalTitle">Add Performance</h2><p id="performanceModalMeta"></p></div><button class="modal-close" id="closePerformanceModal" type="button"><i data-lucide="x" width="20"></i></button></div><form class="performance-form" id="performanceModalForm"><input type="hidden" id="modalRecordId"><div class="performance-form-grid"><label class="field-label">Assessment Section<select class="date-input" id="modalAssessmentSection"><option value="Portfolio Skills Assessment Summary">Portfolio Skills Assessment Summary</option><option value="Performance Task">Performance Task</option><option value="Learning Attitude">Learning Attitude</option></select></label><label class="field-label">Assessment Item<input class="performance-textarea" id="modalAssessmentItem" placeholder="e.g. Project, Participation"></label></div><div class="performance-form-grid"><label class="field-label">Rating<select class="date-input" id="modalAssessmentRating"><option value="Advance">Advance (85-100%)</option><option value="Proficient">Proficient (70-84%)</option><option value="Developing">Developing (50-69%)</option><option value="Below 50% Beginning">Below 50% / Beginning</option></select></label><label class="field-label">Portfolio Date<input class="date-input" id="modalPerformanceDate" type="date"></label><label class="field-label">Month<input class="month-input" id="modalPerformanceMonth" type="month"></label></div><div class="performance-form-grid"><label class="field-label">Skills<textarea class="performance-textarea" id="modalSkill" placeholder="Write skill description"></textarea></label><label class="field-label">Learning Outcome<textarea class="performance-textarea" id="modalLearningOutcome" placeholder="Write learning outcome description"></textarea></label></div><div class="rubric-grid"><div class="rubric-card"><label class="field-label">Excellent<textarea class="performance-textarea" id="modalExcellent" placeholder="Describe excellent performance"></textarea></label></div><div class="rubric-card"><label class="field-label">Satisfactory<textarea class="performance-textarea" id="modalSatisfactory" placeholder="Describe satisfactory performance"></textarea></label></div><div class="rubric-card"><label class="field-label">Needs Practice<textarea class="performance-textarea" id="modalNeedsPractice" placeholder="Describe what needs practice"></textarea></label></div></div><button class="action-button secondary" id="addNewPerformance" type="button"><i data-lucide="plus" width="18"></i> Add New Performance</button></form><div class="modal-actions"><button class="action-button secondary" id="cancelPerformanceModal" type="button">Cancel</button><button class="action-button" id="saveSkill" type="button"><i data-lucide="database" width="18"></i> Save Performance</button></div></div></div>`);
         modal = document.getElementById('performanceModal');
+        addRubricSuggestionDropdowns();
         ['modalAssessmentSection', 'modalAssessmentItem', 'modalAssessmentRating'].forEach(id => document.getElementById(id)?.closest('label')?.remove());
         const portfolioDateLabel = document.getElementById('modalPerformanceDate')?.parentElement;
         if (portfolioDateLabel) {
@@ -390,6 +411,26 @@
         document.getElementById('modalExcellent').addEventListener('input', syncPerformanceRubricInputs);
         if (window.lucide) lucide.createIcons();
         return modal;
+    }
+
+    function addRubricSuggestionDropdowns() {
+        Object.entries(rubricSuggestions).forEach(([inputId, suggestions]) => {
+            const textarea = document.getElementById(inputId);
+            if (!textarea || document.getElementById(`${inputId}Suggestion`)) return;
+
+            const select = document.createElement('select');
+            select.id = `${inputId}Suggestion`;
+            select.className = 'date-input rubric-suggestion-select';
+            select.setAttribute('aria-label', `Choose a suggested comment for ${textarea.closest('.rubric-card')?.querySelector('.field-label')?.textContent || 'performance'}`);
+            select.append(new Option('Choose a suggested comment', ''));
+            suggestions.forEach(suggestion => select.append(new Option(suggestion, suggestion)));
+            select.addEventListener('change', () => {
+                if (!select.value) return;
+                textarea.value = select.value;
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            textarea.parentElement.insertBefore(select, textarea);
+        });
     }
 
     function syncPerformanceRubricInputs() {
@@ -415,6 +456,10 @@
         document.getElementById('modalExcellent').value = record.excellentDescription || '';
         document.getElementById('modalSatisfactory').value = record.satisfactoryDescription || '';
         document.getElementById('modalNeedsPractice').value = record.needsPracticeDescription || '';
+        ['modalExcellent', 'modalSatisfactory', 'modalNeedsPractice'].forEach(id => {
+            const select = document.getElementById(`${id}Suggestion`);
+            if (select) select.value = '';
+        });
         syncPerformanceRubricInputs();
         const saveButton = document.getElementById('saveSkill');
         if (saveButton) saveButton.disabled = false;

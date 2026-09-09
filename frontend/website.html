@@ -10,6 +10,11 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="website.css">
+  <style>
+    .hero-slide { opacity: 0; transition: opacity .7s ease; }
+    .hero-slide.is-active { opacity: 1; }
+    @media (prefers-reduced-motion: reduce) { .hero-slide { transition: none; } }
+  </style>
 </head>
 <body>
   <div class="topbar"><div class="wrap"><span>Admissions are open — Join the Beacon family</span><div><a href="tel:+923015060341">0301-5060341</a><a href="mailto:beaconlightjandoffice1@gmail.com">beaconlightjandoffice1@gmail.com</a></div></div></div>
@@ -33,6 +38,50 @@
     const galleryPortrait = document.querySelector('.masonry img:nth-child(3)');
     if (galleryPortrait) { galleryPortrait.src = 'images_for_website/1%20(26).jpeg'; galleryPortrait.alt = 'Beacon Light School students celebrating Pakistan Day'; galleryPortrait.classList.add('gallery-portrait'); }
     document.querySelector('.menu').onclick=()=>document.querySelector('.navlinks').classList.toggle('open');document.querySelectorAll('.navlinks a').forEach(a=>a.onclick=()=>document.querySelector('.navlinks').classList.remove('open'));
+
+    async function startBannerCarousel() {
+      const hero = document.querySelector('.hero');
+      const firstSlide = document.querySelector('.hero-img');
+      if (!hero || !firstSlide || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      try {
+        const response = await fetch('/api/banners');
+        const data = await response.json();
+        const banners = (Array.isArray(data.banners) ? data.banners : [])
+          .filter((banner) => banner.isActive !== false && banner.imageUrl)
+          .sort((first, second) => Number(first.displayOrder || 0) - Number(second.displayOrder || 0));
+        if (!banners.length) return;
+
+        const secondSlide = firstSlide.cloneNode(false);
+        secondSlide.classList.add('hero-slide');
+        firstSlide.classList.add('hero-slide', 'is-active');
+        hero.insertBefore(secondSlide, hero.querySelector('.hero-shade'));
+
+        let bannerIndex = 0;
+        let activeSlide = firstSlide;
+        function showNextBanner() {
+          const nextSlide = activeSlide === firstSlide ? secondSlide : firstSlide;
+          const banner = banners[bannerIndex];
+          const image = new Image();
+          image.onload = () => {
+            nextSlide.src = banner.imageUrl;
+            nextSlide.alt = banner.title || 'Beacon Light School banner';
+            nextSlide.classList.add('is-active');
+            activeSlide.classList.remove('is-active');
+            activeSlide = nextSlide;
+            bannerIndex = (bannerIndex + 1) % banners.length;
+          };
+          image.src = banner.imageUrl;
+        }
+
+        showNextBanner();
+        if (banners.length > 1) window.setInterval(showNextBanner, 5000);
+      } catch (error) {
+        console.warn('Website banners could not be loaded.', error);
+      }
+    }
+
+    startBannerCarousel();
   </script>
 </body>
 </html>
