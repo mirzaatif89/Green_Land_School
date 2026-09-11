@@ -1419,6 +1419,12 @@
                                                     </select>
                                                 </div>
                                                 <div class="challan-filter-field">
+                                                    <label for="challanSectionFilter">Section</label>
+                                                    <select id="challanSectionFilter">
+                                                        <option value="">All Sections</option>
+                                                    </select>
+                                                </div>
+                                                <div class="challan-filter-field">
                                                     <label for="challanFeeStatusFilter">Fee Status</label>
                                                     <select id="challanFeeStatusFilter">
                                                         <option value="all" selected>All</option>
@@ -1671,6 +1677,7 @@
             bindFeePaymentSocketListener();
             populateCampusFilter();
             populateClassFilter();
+            populateSectionFilter();
             populateStudents();
             setChallanDefaults();
             challanFormFields.forEach(id => {
@@ -1682,6 +1689,10 @@
             const classFilter = document.getElementById('challanClassFilter');
             if (classFilter) {
                 classFilter.addEventListener('change', handleClassFilterChange);
+            }
+            const sectionFilter = document.getElementById('challanSectionFilter');
+            if (sectionFilter) {
+                sectionFilter.addEventListener('change', handleSectionFilterChange);
             }
             const campusFilter = document.getElementById('challanCampusFilter');
             if (campusFilter) {
@@ -1969,9 +1980,10 @@
             if (!trigger) return;
             const campus = getSelectedChallanCampus() || 'All';
             const classLabel = String(document.getElementById('challanClassFilter')?.value || '').trim() || 'All';
+            const sectionLabel = String(document.getElementById('challanSectionFilter')?.value || '').trim() || 'All';
             const statusLabel = String(document.getElementById('challanFeeStatusFilter')?.value || 'all').toLowerCase();
             const statusPretty = statusLabel === 'pending' ? 'Pending' : (statusLabel === 'paid' ? 'Paid' : 'All');
-            trigger.textContent = `Campus: ${campus}, Class: ${classLabel}, Status: ${statusPretty}`;
+            trigger.textContent = `Campus: ${campus}, Class: ${classLabel}, Section: ${sectionLabel}, Status: ${statusPretty}`;
         }
 
         function handleCampusFilterChange() {
@@ -1984,6 +1996,7 @@
             const previousClass = String(classFilter?.value || '').trim();
 
             populateClassFilter(previousClass);
+            populateSectionFilter();
             populateStudents();
             updateChallanFilterTriggerLabel();
 
@@ -2000,6 +2013,16 @@
 
         function normalizeClassLabel(value) {
             return String(value || '').trim();
+        }
+
+        function getChallanStudentSection(student = {}) {
+            return String(student.section || student.classSection || student.sectionName || '').trim();
+        }
+
+        function getChallanStudentClassSectionLabel(student = {}) {
+            const className = normalizeClassLabel(student.classGrade || student.className || '-') || '-';
+            const section = getChallanStudentSection(student);
+            return section ? `${className} - ${section}` : className;
         }
 
         function getClassKey(value) {
@@ -2086,6 +2109,27 @@
             });
 
             classFilter.value = classList.includes(currentSelection) ? currentSelection : '';
+            updateChallanFilterTriggerLabel();
+        }
+
+        function populateSectionFilter(selectedSection = '') {
+            const sectionFilter = document.getElementById('challanSectionFilter');
+            if (!sectionFilter) return;
+            const currentSelection = selectedSection || sectionFilter.value || '';
+            const selectedCampusKey = normalizeCampusKey(getSelectedChallanCampus());
+            const selectedClassKey = getClassKey(document.getElementById('challanClassFilter')?.value || '');
+            const sections = [...new Set(challanStudents
+                .filter((student) => {
+                    if (selectedCampusKey && normalizeCampusKey(student?.campusName || '') !== selectedCampusKey) return false;
+                    return !selectedClassKey || getClassKey(student?.classGrade) === selectedClassKey;
+                })
+                .map(getChallanStudentSection)
+                .filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+            sectionFilter.innerHTML = '<option value="">All Sections</option>' + sections
+                .map((section) => `<option value="${escapeHtml(section)}">${escapeHtml(section)}</option>`)
+                .join('');
+            sectionFilter.value = sections.includes(currentSelection) ? currentSelection : '';
             updateChallanFilterTriggerLabel();
         }
 
@@ -2223,7 +2267,7 @@
 
             const matches = getFilteredChallanStudentsBySelectedClass().filter((student) => {
                 const haystack = [student.fullName, student.studentCode, student.id, student.rollNo,
-                    student.fatherName, student.classGrade, student.campusName]
+                    student.fatherName, student.classGrade, getChallanStudentSection(student), student.campusName]
                     .map((value) => String(value || '').toLowerCase()).join(' ');
                 return haystack.includes(term);
             }).slice(0, 30);
@@ -2238,7 +2282,7 @@
                 <button type="button" class="challan-student-result" role="option"
                     onclick="selectStudentFromSearch('${encodeURIComponent(String(student.id || ''))}')">
                     <strong>${escapeHtml(student.fullName || 'Unnamed Student')}</strong>
-                    <span>Class: ${escapeHtml(student.classGrade || '-')}</span>
+                    <span>Class / Section: ${escapeHtml(getChallanStudentClassSectionLabel(student))}</span>
                     <span>Campus: ${escapeHtml(student.campusName || '-')}</span>
                 </button>
             `).join('');
@@ -2278,6 +2322,7 @@
                         student.rollNo,
                         student.fatherName,
                         student.classGrade,
+                        getChallanStudentSection(student),
                         student.campusName
                     ]
                         .map((value) => String(value || '').toLowerCase())
@@ -2295,7 +2340,7 @@
             searchableStudents.forEach(student => {
                 const option = document.createElement('option');
                 option.value = student.id;
-                option.textContent = student.fullName || 'Unnamed Student';
+                option.textContent = `${student.fullName || 'Unnamed Student'} - ${getChallanStudentClassSectionLabel(student)}`;
                 select.appendChild(option);
             });
         }
@@ -2306,18 +2351,20 @@
             const classFilter = document.getElementById('challanClassFilter');
             const selectedClass = normalizeClassLabel(classFilter ? classFilter.value : '');
             const selectedClassKey = getClassKey(selectedClass);
+            const selectedSection = String(document.getElementById('challanSectionFilter')?.value || '').trim().toLowerCase();
             return challanStudents.filter((student) => {
                 if (selectedCampusKey) {
                     const campusKey = normalizeCampusKey(student?.campusName || '');
                     if (!campusKey || campusKey !== selectedCampusKey) return false;
                 }
-                if (!selectedClassKey) return true;
-                return getClassKey(student.classGrade) === selectedClassKey;
+                if (selectedClassKey && getClassKey(student.classGrade) !== selectedClassKey) return false;
+                return !selectedSection || getChallanStudentSection(student).toLowerCase() === selectedSection;
             });
         }
 
         function handleClassFilterChange() {
             const selectedStudentId = document.getElementById('challanStudent').value;
+            populateSectionFilter();
             populateStudents();
             const filteredStudents = getFilteredChallanStudentsBySelectedClass();
             const studentSelect = document.getElementById('challanStudent');
@@ -2573,6 +2620,10 @@
             if (studentSearch) studentSearch.value = student.fullName || student.studentCode || '';
             applyStudentToChallan(student, true);
             triggerChallanRefresh();
+        }
+
+        function handleSectionFilterChange() {
+            handleClassFilterChange();
         }
 
         function applyStudentToChallan(student, syncLookup = false) {

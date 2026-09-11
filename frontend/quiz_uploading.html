@@ -78,6 +78,7 @@
                     <input type="hidden" id="quizUploadId">
                     <div class="upload-grid">
                         <div><label>Class</label><select id="quizClass" required></select></div>
+                        <div><label>Section</label><select id="quizSection" required></select></div>
                         <div><label>Quiz Title</label><input type="text" id="quizTitle" required placeholder="e.g. Algebra Quiz"></div>
                         <div><label>Total Marks</label><input type="number" id="quizTotalMarks" min="1" required placeholder="e.g. 20"></div>
                         <div><label>Pass Marks</label><input type="number" id="quizPassMarks" min="1" required placeholder="e.g. 10"></div>
@@ -129,6 +130,10 @@
                             <select id="quizResultClassFilter"><option value="">All Class</option></select>
                         </div>
                         <div class="quiz-results-filter">
+                            <label for="quizResultSectionFilter">Section</label>
+                            <select id="quizResultSectionFilter"><option value="">All Sections</option></select>
+                        </div>
+                        <div class="quiz-results-filter">
                             <label for="quizResultStatusOptions">Status</label>
                             <div class="quiz-results-dropdown" data-quiz-results-dropdown>
                                 <button class="quiz-results-dropdown-btn" type="button" data-quiz-results-dropdown-toggle aria-expanded="false">
@@ -152,6 +157,7 @@
     </div>
     <script src="auth.js?v=20260814-live-auth-fix1"></script>
     <script src="script.js?v=20260814-local-runtime-fix6"></script>
+    <script src="student_schedule_sections.js"></script>
     <script>
         const QUIZ_KEY = 'eduCore_student_quizzes';
         const QUIZ_SUBMISSION_KEY = 'eduCore_student_quiz_submissions';
@@ -191,6 +197,7 @@
                 name: item.studentName || student.fullName || '-',
                 fatherName: student.fatherName || item.fatherName || '-',
                 classGrade: item.classGrade || student.classGrade || '-',
+                section: item.section || student.section || 'General',
                 campusName: student.campusName || item.campusName || 'Main Campus',
                 score: item.score ?? '-',
                 totalMarks: item.totalMarks ?? '-',
@@ -258,7 +265,11 @@
             quizzes.forEach((quiz) => {
                 const quizId = String(quiz.id || '').trim();
                 const quizClass = getQuizItemClass(quiz);
-                const classStudents = students.filter((student) => normalizeQuizFilterValue(student.classGrade) === normalizeQuizFilterValue(quizClass));
+                const quizSection = normalizeQuizFilterValue(quiz.section);
+                const classStudents = students.filter((student) => (
+                    normalizeQuizFilterValue(student.classGrade) === normalizeQuizFilterValue(quizClass) &&
+                    (!quizSection || normalizeQuizFilterValue(student.section || 'General') === quizSection)
+                ));
                 classStudents.forEach((student) => {
                     const studentKey = getQuizStudentKey(student);
                     const submission = submissionMap.get(`${quizId}|${studentKey}`)
@@ -271,6 +282,7 @@
                             name: student.fullName || '-',
                             fatherName: student.fatherName || '-',
                             classGrade: student.classGrade || quizClass || '-',
+                            section: student.section || quiz.section || 'General',
                             campusName: student.campusName || 'Main Campus',
                             score: '-',
                             totalMarks: quiz.totalMarks ?? '-',
@@ -293,9 +305,11 @@
         function populateQuizResultFilters() {
             const campusSelect = document.getElementById('quizResultCampusFilter');
             const classSelect = document.getElementById('quizResultClassFilter');
-            if (!campusSelect || !classSelect) return;
+            const sectionSelect = document.getElementById('quizResultSectionFilter');
+            if (!campusSelect || !classSelect || !sectionSelect) return;
             const previousCampus = campusSelect.value;
             const previousClass = classSelect.value;
+            const previousSection = sectionSelect.value;
             const rows = getAllQuizResultRows();
             const campuses = [...new Set(rows.map((row) => String(row.campusName || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
             const classes = [...new Set(rows.map((row) => String(row.classGrade || '').trim()).filter(Boolean))].sort((a, b) => {
@@ -306,25 +320,29 @@
             classSelect.innerHTML = '<option value="">All Class</option>' + classes.map((className) => `<option value="${esc(className)}">${esc(className)}</option>`).join('');
             if (campuses.some((campus) => normalizeQuizFilterValue(campus) === normalizeQuizFilterValue(previousCampus))) campusSelect.value = previousCampus;
             if (classes.some((className) => normalizeQuizFilterValue(className) === normalizeQuizFilterValue(previousClass))) classSelect.value = previousClass;
+            const sections = [...new Set(rows
+                .filter((row) => (!campusSelect.value || normalizeQuizFilterValue(row.campusName) === normalizeQuizFilterValue(campusSelect.value)) && (!classSelect.value || normalizeQuizFilterValue(row.classGrade) === normalizeQuizFilterValue(classSelect.value)))
+                .map((row) => String(row.section || 'General').trim())
+                .filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+            sectionSelect.innerHTML = '<option value="">All Sections</option>' + sections.map((section) => `<option value="${esc(section)}">${esc(section)}</option>`).join('');
+            if (sections.some((section) => normalizeQuizFilterValue(section) === normalizeQuizFilterValue(previousSection))) sectionSelect.value = previousSection;
         }
         function getFilteredQuizSubmissionRows() {
             const selectedCampus = document.getElementById('quizResultCampusFilter')?.value || '';
             const selectedClass = document.getElementById('quizResultClassFilter')?.value || '';
+            const selectedSection = document.getElementById('quizResultSectionFilter')?.value || '';
             const selectedStatuses = getSelectedQuizResultStatuses();
             return getAllQuizResultRows()
                 .filter((row) => !selectedCampus || normalizeQuizFilterValue(row.campusName) === normalizeQuizFilterValue(selectedCampus))
                 .filter((row) => !selectedClass || normalizeQuizFilterValue(row.classGrade) === normalizeQuizFilterValue(selectedClass))
+                .filter((row) => !selectedSection || normalizeQuizFilterValue(row.section || 'General') === normalizeQuizFilterValue(selectedSection))
                 .filter((row) => !selectedStatuses.length || selectedStatuses.includes(row.submissionStatus) || selectedStatuses.includes(row.resultStatus));
         }
         function populateClasses() {
-            const students = data('eduCore_students');
-            const classes = data('eduCore_classes');
-            const names = [...new Set([...classes.map((item) => item?.section ? `${item.name} (${item.section})` : item?.name), ...students.map((student) => student?.classGrade)].map((value) => String(value || '').trim()).filter(Boolean))]
-                .sort((a, b) => {
-                    if (typeof compareStudentClassNames === 'function') return compareStudentClassNames(a, b);
-                    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-                });
-            quizClass.innerHTML = '<option value="">Select Class</option>' + names.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+            const helper = window.studentSchedulingSections;
+            const quizzes = data(QUIZ_KEY);
+            helper?.populateClassSelect(quizClass, quizClass.value, quizzes.map((item) => item.classGrade));
+            helper?.populateSectionSelect(quizSection, quizClass.value, '', quizSection.value, quizzes);
         }
         function readFile(input) {
             const file = input.files?.[0];
@@ -406,6 +424,7 @@
             return {
                 id: quizUploadId.value,
                 classGrade: quizClass.value,
+                section: quizSection.value,
                 title: quizTitle.value.trim(),
                 totalMarks,
                 passMarks,
@@ -415,8 +434,8 @@
         }
         function validateQuizMeta() {
             const meta = getQuizMeta();
-            if (!meta.classGrade || !meta.title || !meta.totalMarks || !meta.passMarks) {
-                showAppAlert('Select class, enter quiz title, total marks, and pass marks first.', 'Missing Quiz Details');
+            if (!meta.classGrade || !meta.section || !meta.title || !meta.totalMarks || !meta.passMarks) {
+                showAppAlert('Select class and section, then enter quiz title, total marks, and pass marks.', 'Missing Quiz Details');
                 return null;
             }
             return meta;
@@ -426,7 +445,7 @@
             if (!meta) return;
             if (!questionDrafts.length) questionDrafts = [createEmptyQuestion()];
             renderQuestionBuilder();
-            quizModalSubtitle.textContent = `${meta.classGrade} - ${meta.title} | Total: ${meta.totalMarks}, Pass: ${meta.passMarks}`;
+            quizModalSubtitle.textContent = `${meta.classGrade} - Section ${meta.section} - ${meta.title} | Total: ${meta.totalMarks}, Pass: ${meta.passMarks}`;
             quizQuestionModal.classList.add('active');
             quizQuestionModal.setAttribute('aria-hidden', 'false');
             setTimeout(() => quizQuestionList.querySelector('textarea, input, select')?.focus(), 0);
@@ -439,7 +458,7 @@
         function render() {
             const items = data(QUIZ_KEY).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
             if (!items.length) { quizUploadList.innerHTML = '<div class="empty-note">No quiz uploaded yet.</div>'; renderSubmissions(); return; }
-            quizUploadList.innerHTML = `<table class="upload-table"><thead><tr><th>Class</th><th>Quiz</th><th>Marks</th><th>Pass Marks</th><th>Questions</th><th>Due</th><th>File</th><th>Action</th></tr></thead><tbody>${items.map((item) => `<tr><td>${esc(item.classGrade)}</td><td><strong>${esc(item.title)}</strong><br>${esc(item.details || '-')}</td><td>${esc(item.totalMarks || '-')}</td><td>${esc(item.passMarks || '-')}</td><td>${esc(Array.isArray(item.questions) ? item.questions.length : 0)}</td><td>${esc(item.dueDate || '-')}</td><td>${item.file?.dataUrl ? `<a href="${item.file.dataUrl}" download="${esc(item.file.name || 'quiz-file')}">${esc(item.file.name || 'Download')}</a>` : '-'}</td><td><div class="action-row"><button class="mini-btn edit" onclick="editItem('${item.id}')"><i data-lucide="edit-2" width="14"></i> Edit</button><button class="mini-btn delete" onclick="deleteItem('${item.id}')"><i data-lucide="trash-2" width="14"></i> Delete</button></div></td></tr>`).join('')}</tbody></table>`;
+            quizUploadList.innerHTML = `<table class="upload-table"><thead><tr><th>Class</th><th>Section</th><th>Quiz</th><th>Marks</th><th>Pass Marks</th><th>Questions</th><th>Due</th><th>File</th><th>Action</th></tr></thead><tbody>${items.map((item) => `<tr><td>${esc(item.classGrade)}</td><td>${esc(item.section || 'General')}</td><td><strong>${esc(item.title)}</strong><br>${esc(item.details || '-')}</td><td>${esc(item.totalMarks || '-')}</td><td>${esc(item.passMarks || '-')}</td><td>${esc(Array.isArray(item.questions) ? item.questions.length : 0)}</td><td>${esc(item.dueDate || '-')}</td><td>${item.file?.dataUrl ? `<a href="${item.file.dataUrl}" download="${esc(item.file.name || 'quiz-file')}">${esc(item.file.name || 'Download')}</a>` : '-'}</td><td><div class="action-row"><button class="mini-btn edit" onclick="editItem('${item.id}')"><i data-lucide="edit-2" width="14"></i> Edit</button><button class="mini-btn delete" onclick="deleteItem('${item.id}')"><i data-lucide="trash-2" width="14"></i> Delete</button></div></td></tr>`).join('')}</tbody></table>`;
             renderSubmissions();
             if (window.lucide) lucide.createIcons();
         }
@@ -448,8 +467,8 @@
             const rows = getFilteredQuizSubmissionRows();
             if (!getAllQuizResultRows().length) { quizSubmissionList.innerHTML = '<div class="empty-note">No quiz result record is available yet.</div>'; return; }
             if (!rows.length) { quizSubmissionList.innerHTML = '<div class="empty-note">No quiz result found for selected filters.</div>'; return; }
-            quizSubmissionList.innerHTML = `<table class="upload-table"><thead><tr><th>Std ID</th><th>Name</th><th>Father Name</th><th>Class</th><th>Campus</th><th>Total / Obtain Marks</th><th>Quiz Title</th></tr></thead><tbody>${rows.map((row) => (
-                `<tr><td>${esc(row.studentId)}</td><td>${esc(row.name)}</td><td>${esc(row.fatherName)}</td><td>${esc(row.classGrade)}</td><td>${esc(row.campusName)}</td><td><strong>${esc(row.score)} / ${esc(row.totalMarks)}</strong></td><td>${esc(row.quizTitle)}</td></tr>`
+            quizSubmissionList.innerHTML = `<table class="upload-table"><thead><tr><th>Std ID</th><th>Name</th><th>Father Name</th><th>Class</th><th>Section</th><th>Campus</th><th>Total / Obtain Marks</th><th>Quiz Title</th></tr></thead><tbody>${rows.map((row) => (
+                `<tr><td>${esc(row.studentId)}</td><td>${esc(row.name)}</td><td>${esc(row.fatherName)}</td><td>${esc(row.classGrade)}</td><td>${esc(row.section || 'General')}</td><td>${esc(row.campusName)}</td><td><strong>${esc(row.score)} / ${esc(row.totalMarks)}</strong></td><td>${esc(row.quizTitle)}</td></tr>`
             )).join('')}</tbody></table>`;
         }
         function printQuizResultsList() {
@@ -527,6 +546,7 @@
             const item = data(QUIZ_KEY).find((entry) => entry.id === id);
             if (!item) return;
             quizUploadId.value = item.id; quizClass.value = item.classGrade || ''; quizTitle.value = item.title || ''; quizTotalMarks.value = item.totalMarks || ''; quizPassMarks.value = item.passMarks || ''; quizDueDate.value = item.dueDate || ''; quizDetails.value = item.details || '';
+            window.studentSchedulingSections?.populateSectionSelect(quizSection, quizClass.value, '', item.section || 'General', data(QUIZ_KEY));
             questionDrafts = Array.isArray(item.questions) && item.questions.length ? item.questions.map((question) => ({ text: question.text || '', options: Array.isArray(question.options) ? [...question.options, '', '', '', ''].slice(0, 4) : ['', '', '', ''], correctIndex: Number(question.correctIndex || 0), marks: Math.max(1, Number(question.marks || 1)) })) : [createEmptyQuestion()];
             renderQuestionBuilder();
             quizSaveBtn.innerHTML = '<i data-lucide="arrow-right"></i> Update Questions';
@@ -546,7 +566,7 @@
             const existing = data(QUIZ_KEY).find((item) => item.id === editId);
             const file = await readFile(quizFile);
             const questions = getValidQuestions();
-            const item = { id: editId || `QUIZ-${Date.now()}`, classGrade: meta.classGrade, title: meta.title, totalMarks: meta.totalMarks, passMarks: meta.passMarks, dueDate: meta.dueDate, details: meta.details, questions, file: file || existing?.file || null, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
+            const item = { id: editId || `QUIZ-${Date.now()}`, classGrade: meta.classGrade, section: meta.section, title: meta.title, totalMarks: meta.totalMarks, passMarks: meta.passMarks, dueDate: meta.dueDate, details: meta.details, questions, file: file || existing?.file || null, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
             if (!item.questions.length && !item.file?.dataUrl) { showAppAlert('Add at least one complete typed question or attach a quiz file.', 'Missing Quiz Questions'); return; }
             const items = data(QUIZ_KEY); const index = items.findIndex((entry) => entry.id === editId);
             if (index >= 0) items[index] = item; else items.push(item);
@@ -555,12 +575,15 @@
         }
         document.getElementById('quizResultCampusFilter')?.addEventListener('change', renderSubmissions);
         document.getElementById('quizResultClassFilter')?.addEventListener('change', renderSubmissions);
+        document.getElementById('quizResultSectionFilter')?.addEventListener('change', renderSubmissions);
         document.getElementById('quizResultStatusOptions')?.addEventListener('change', () => {
             updateQuizResultStatusSummary();
             renderSubmissions();
         });
         document.getElementById('printQuizResultsBtn')?.addEventListener('click', printQuizResultsList);
-        setupQuizResultDropdowns(); updateQuizResultStatusSummary(); populateClasses(); questionDrafts = [createEmptyQuestion()]; renderQuestionBuilder(); render(); renderSubmissions(); if (window.lucide) lucide.createIcons();
+        setupQuizResultDropdowns(); updateQuizResultStatusSummary(); populateClasses();
+        window.studentSchedulingSections?.bindClassSectionControls({ classSelect: quizClass, sectionSelect: quizSection, include: data(QUIZ_KEY) });
+        questionDrafts = [createEmptyQuestion()]; renderQuestionBuilder(); render(); renderSubmissions(); if (window.lucide) lucide.createIcons();
     </script>
 </body>
 

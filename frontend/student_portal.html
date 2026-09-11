@@ -3217,7 +3217,7 @@
         async function downloadPortalDiaryGroup(encodedGroupKey) {
             const groupKey = decodeURIComponent(encodedGroupKey || '');
             const student = getCurrentPortalStudent();
-            const items = getClassWiseItems(STUDENT_DIARY_KEY, student).filter((entry) => `${entry.campusName || ''}|${entry.classGrade || '-'}|${entry.date || '-'}` === groupKey);
+            const items = getClassWiseItems(STUDENT_DIARY_KEY, student).filter((entry) => `${entry.campusName || ''}|${entry.classGrade || '-'}|${entry.section || ''}|${entry.date || '-'}` === groupKey);
             if (!items.length) {
                 showAppAlert('Diary entry was not found.', 'Download Failed');
                 return;
@@ -3252,14 +3252,51 @@
             return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
         }
 
+        function normalizePortalSection(value = '') {
+            return String(value || '')
+                .trim()
+                .replace(/^section\s+/i, '')
+                .replace(/\s+/g, ' ')
+                .toLowerCase();
+        }
+
+        function getPortalClassSection(record = {}) {
+            const rawClass = String(record.classGrade || record.className || record.class || '').trim();
+            const suppliedSection = String(record.section || record.classSection || '').trim();
+            const combinedMatch = rawClass.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+            return {
+                className: normalizeClassName(combinedMatch ? combinedMatch[1] : rawClass),
+                section: normalizePortalSection(suppliedSection || combinedMatch?.[2] || '')
+            };
+        }
+
+        function formatPortalClassSection(record = {}) {
+            const { className, section } = getPortalClassSection(record);
+            if (!className) return '-';
+            const label = String(record.classGrade || record.className || record.class || '').trim() || '-';
+            return section && !/\([^()]+\)\s*$/.test(label) ? `${label} - Section ${section.toUpperCase()}` : label;
+        }
+
+        function isPortalItemForStudent(item = {}, student = {}) {
+            const studentClass = getPortalClassSection(student);
+            const itemClass = getPortalClassSection(item);
+            if (!studentClass.className || itemClass.className !== studentClass.className) return false;
+
+            const studentCampus = normalizePortalCampusName(student.campusName || student.branchName || loggedInUser?.campusName || '');
+            const itemCampus = normalizePortalCampusName(item.campusName || item.branchName || item.campus || '');
+            if (itemCampus && studentCampus && itemCampus !== studentCampus) return false;
+
+            // Legacy content had no section. It remains visible, but section-specific content stays private to that section.
+            return !itemClass.section || Boolean(studentClass.section && itemClass.section === studentClass.section);
+        }
+
         function getStudentClassSchedules(student = {}) {
-            const className = normalizeClassName(student.classGrade);
-            if (!className) return [];
+            if (!getPortalClassSection(student).className) return [];
 
             try {
                 const schedules = JSON.parse(localStorage.getItem(STUDENT_SCHEDULE_KEY) || '[]');
                 return (Array.isArray(schedules) ? schedules : [])
-                    .filter((item) => normalizeClassName(item.classGrade) === className)
+                    .filter((item) => isPortalItemForStudent(item, student))
                     .sort((a, b) => `${a.day || ''}${a.startTime || ''}`.localeCompare(`${b.day || ''}${b.startTime || ''}`));
             } catch (error) {
                 return [];
@@ -3480,28 +3517,21 @@
         }
 
         function getClassWiseItems(key, student = {}) {
-            const studentClass = normalizeClassName(student.classGrade);
-            const studentCampus = normalizePortalCampusName(student.campusName || loggedInUser?.campusName || 'Main Campus');
-            const classItems = getPortalData(key)
-                .filter((item) => normalizeClassName(item.classGrade) === studentClass);
-            const exactCampusItems = classItems.filter((item) => {
-                const itemCampus = normalizePortalCampusName(item.campusName || item.branchName || item.campus || '');
-                return !itemCampus || !studentCampus || itemCampus === studentCampus;
-            });
-            const visibleItems = exactCampusItems.length ? exactCampusItems : classItems;
-            return visibleItems
+            return getPortalData(key)
+                .filter((item) => isPortalItemForStudent(item, student))
                 .sort((a, b) => String(b.date || b.updatedAt || b.createdAt || '').localeCompare(String(a.date || a.updatedAt || a.createdAt || '')));
         }
 
         function groupPortalDiaryItems(items = []) {
             const groups = new Map();
             items.forEach((item) => {
-                const key = `${item.campusName || ''}|${item.classGrade || '-'}|${item.date || '-'}`;
+                const key = `${item.campusName || ''}|${item.classGrade || '-'}|${item.section || ''}|${item.date || '-'}`;
                 if (!groups.has(key)) {
                     groups.set(key, {
                         key,
                         campusName: item.campusName || '',
                         classGrade: item.classGrade || '-',
+                        section: getPortalClassSection(item).section,
                         date: item.date || '-',
                         items: []
                     });
@@ -3526,7 +3556,7 @@
             empty.style.display = 'none';
             list.innerHTML = groups.map((group) => `
                 <article class="portal-content-card">
-                    <h4>${escapeHtml(group.classGrade)} Class Diary</h4>
+                    <h4>${escapeHtml(group.classGrade)}${group.section ? ` - Section ${escapeHtml(group.section.toUpperCase())}` : ''} Class Diary</h4>
                     <div class="portal-content-meta">${escapeHtml([group.date, group.campusName].filter(Boolean).join(' | '))} - ${group.items.length} subject${group.items.length === 1 ? '' : 's'}</div>
                     <div class="portal-diary-subjects">
                         ${group.items.map((item) => `
@@ -3673,7 +3703,8 @@
         }
 
         function selectUploadedAssignment(assignmentId) {
-            const assignment = getPortalData(STUDENT_UPLOADED_ASSIGNMENT_KEY).find((item) => String(item.id) === String(assignmentId));
+            const assignment = getClassWiseItems(STUDENT_UPLOADED_ASSIGNMENT_KEY, getCurrentPortalStudent())
+                .find((item) => String(item.id) === String(assignmentId));
             if (!assignment) return;
             document.getElementById('studentAssignmentId').value = assignment.id || '';
             document.getElementById('studentAssignmentTitle').value = assignment.file?.name || assignment.subject || 'Assignment';
@@ -3700,7 +3731,7 @@
             const subject = document.getElementById('studentAssignmentSubject').value.trim();
             const note = document.getElementById('studentAssignmentNote').value.trim();
             let uploadedAssignmentId = document.getElementById('studentAssignmentId')?.value || '';
-            const availableAssignments = getPortalData(STUDENT_UPLOADED_ASSIGNMENT_KEY);
+            const availableAssignments = getClassWiseItems(STUDENT_UPLOADED_ASSIGNMENT_KEY, student);
             const selectedAssignment = availableAssignments.find((item) => String(item.id) === String(uploadedAssignmentId));
             if (!uploadedAssignmentId && availableAssignments.length === 1) {
                 uploadedAssignmentId = availableAssignments[0].id || '';
@@ -3736,6 +3767,8 @@
                 studentName: student.fullName || loggedInUser.fullName || 'Student',
                 rollNo: student.rollNo || '',
                 classGrade: student.classGrade || '',
+                section: getPortalClassSection(student).section,
+                campusName: student.campusName || student.branchName || '',
                 assignmentTitle: assignmentDetails?.file?.name || assignmentDetails?.subject || title || 'Assignment Submission',
                 subject: assignmentDetails?.subject || subject,
                 note,
@@ -3749,7 +3782,7 @@
             if (uploadedAssignmentId) {
                 const uploadedAssignments = getPortalData(STUDENT_UPLOADED_ASSIGNMENT_KEY);
                 const assignment = uploadedAssignments.find((item) => String(item.id) === String(uploadedAssignmentId));
-                if (assignment) {
+                if (assignment && isPortalItemForStudent(assignment, student)) {
                     assignment.submissions = assignment.submissions || {};
                     assignment.submissions[student.id] = {
                         ...(assignment.submissions[student.id] || {}),
@@ -3966,6 +3999,8 @@
                 quizId,
                 quizTitle: quiz.title || 'Quiz',
                 classGrade: student.classGrade || quiz.classGrade || '',
+                section: getPortalClassSection(student).section,
+                campusName: student.campusName || student.branchName || '',
                 studentKey,
                 studentId: student.studentCode || student.id || loggedInUser?.id || '',
                 studentName: student.fullName || loggedInUser?.fullName || 'Student',
@@ -5797,15 +5832,18 @@
             const emptyState = document.getElementById('studentLectureEmpty');
             const countEl = document.getElementById('studentLectureCount');
             if (!lectureList || !emptyState || !countEl) return;
-            const studentClass = normalizeClassName(student.classGrade);
             const teachers = await loadTeachersForLectures();
             const lectures = [];
 
             teachers.forEach((teacher) => {
                 normalizeTeacherSchedule(teacher.schedule).forEach((item) => {
-                    if (normalizeClassName(item.classGrade) !== studentClass) return;
-                    lectures.push({
+                    const scheduledItem = {
                         ...item,
+                        campusName: item.campusName || item.branchName || teacher.campusName || teacher.branchName || ''
+                    };
+                    if (!isPortalItemForStudent(scheduledItem, student)) return;
+                    lectures.push({
+                        ...scheduledItem,
                         teacherName: teacher.fullName || 'Teacher',
                         teacherSubject: teacher.subject || ''
                     });
@@ -5832,7 +5870,7 @@
                         <div class="lecture-meta">Teacher: ${escapeHtml(item.teacherName)}</div>
                     </div>
                     <div>
-                        <div class="lecture-meta">Class: ${escapeHtml(item.classGrade || student.classGrade || '-')}</div>
+                        <div class="lecture-meta">Class: ${escapeHtml(formatPortalClassSection(item))}</div>
                         <div class="lecture-meta">Room: ${escapeHtml(item.room || '-')}</div>
                         ${item.note ? `<div class="lecture-meta">${escapeHtml(item.note)}</div>` : ''}
                     </div>
@@ -5951,6 +5989,8 @@
         function applyStudentData(student) {
             if (!student) return;
 
+            const studentClassLabel = formatPortalClassSection(student);
+
             document.getElementById('studentName').innerText = student.fullName || loggedInUser.fullName || 'Student';
             const avatar = document.getElementById('avatarLetter');
             if (student.profileImage) {
@@ -5958,7 +5998,7 @@
             } else {
                 avatar.textContent = (student.fullName || 'S').charAt(0).toUpperCase();
             }
-            document.getElementById('studentClass').innerText = `Class: ${student.classGrade || '-'}`;
+            document.getElementById('studentClass').innerText = `Class: ${studentClassLabel}`;
             document.getElementById('rollNo').innerText = student.rollNo || '-';
             document.getElementById('mobileRollNo').innerText = student.rollNo || '-';
             const campusName = student.campusName || student.branchName || '-';
@@ -5967,7 +6007,7 @@
                 if (element) element.innerText = value;
             };
             setTextContent('portalCampusName', campusName);
-            setTextContent('portalSummaryClass', student.classGrade || '-');
+            setTextContent('portalSummaryClass', studentClassLabel);
             setTextContent('portalTodayLabel', new Date().toLocaleDateString(undefined, {
                 weekday: 'short',
                 day: '2-digit',
@@ -5979,7 +6019,7 @@
                 if (field) field.value = value || '-';
             };
             setFieldValue('studentLeaveName', student.fullName || loggedInUser.fullName || 'Student');
-            setFieldValue('studentLeaveClass', student.classGrade || '-');
+            setFieldValue('studentLeaveClass', studentClassLabel);
             setFieldValue('studentLeaveRollNo', student.rollNo || '-');
             setFieldValue('studentLeaveStudentId', student.studentCode || student.id || loggedInUser.id || '-');
 

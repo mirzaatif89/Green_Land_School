@@ -270,6 +270,7 @@
                                 </th>
                                 <th>Roll No</th>
                                 <th>Name</th>
+                                <th>Section</th>
                                 <th>Phone</th>
 
                                 <th>Status</th>
@@ -325,17 +326,29 @@
             const searchInput = document.getElementById('classSearchInput');
             if (searchInput) {
                 searchInput.addEventListener('input', (e) => {
-                    const currentClass = document.getElementById('studentsListView').dataset.currentClass;
+                    const studentsView = document.getElementById('studentsListView');
+                    const currentClass = studentsView.dataset.currentClass;
                     if (currentClass) {
-                        renderClassStudents(currentClass, e.target.value.toLowerCase());
+                        renderClassStudents(
+                            currentClass,
+                            studentsView.dataset.currentSection || 'General',
+                            e.target.value.toLowerCase(),
+                            studentsView.dataset.currentClassName || ''
+                        );
                     }
                 });
                 searchInput.addEventListener('keydown', (event) => {
                     if (event.key !== 'Enter') return;
                     event.preventDefault();
-                    const currentClass = document.getElementById('studentsListView').dataset.currentClass;
+                    const studentsView = document.getElementById('studentsListView');
+                    const currentClass = studentsView.dataset.currentClass;
                     if (currentClass) {
-                        renderClassStudents(currentClass, searchInput.value.toLowerCase());
+                        renderClassStudents(
+                            currentClass,
+                            studentsView.dataset.currentSection || 'General',
+                            searchInput.value.toLowerCase(),
+                            studentsView.dataset.currentClassName || ''
+                        );
                     }
                 });
             }
@@ -357,6 +370,100 @@
             { id: '10', name: 'Class 10', keywords: ['10', 'ten', '10th', 'class 10', 'class ten'] },
         ];
 
+        function escapeClassesPageHtml(value) {
+            const element = document.createElement('div');
+            element.textContent = String(value ?? '');
+            return element.innerHTML;
+        }
+
+        function getClassesPageSection(section = '') {
+            return String(section || '').trim() || 'General';
+        }
+
+        function splitClassesPageClassAndSection(classGrade = '', section = '') {
+            const suppliedSection = String(section || '').trim();
+            const rawClass = String(classGrade || '').trim();
+            const bracketMatch = rawClass.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+            const sectionMatch = rawClass.match(/^(.*?)\s*-\s*Section\s+(.+)$/i);
+            return {
+                classGrade: (bracketMatch?.[1] || sectionMatch?.[1] || rawClass).trim(),
+                section: suppliedSection || (bracketMatch?.[2] || sectionMatch?.[2] || '').trim()
+            };
+        }
+
+        function findClassesPageClassDefinition(classGrade = '') {
+            const normalizedClass = String(classGrade || '').toLowerCase().trim();
+            if (!normalizedClass) return null;
+            return classList.find((cls) =>
+                cls.name.toLowerCase() === normalizedClass ||
+                cls.keywords.some((keyword) => normalizedClass === keyword || normalizedClass === `class ${keyword}`)
+            ) || null;
+        }
+
+        function getClassesPageClassDefinition(classId, className = '') {
+            const knownClass = classList.find((cls) => cls.id === classId);
+            if (knownClass) return knownClass;
+            const parsed = splitClassesPageClassAndSection(className);
+            return parsed.classGrade ? {
+                id: classId,
+                name: parsed.classGrade,
+                keywords: [parsed.classGrade.toLowerCase()]
+            } : null;
+        }
+
+        function classesPageStudentMatchesClass(student, cls) {
+            const parsed = splitClassesPageClassAndSection(student?.classGrade, student?.section);
+            const studentClass = parsed.classGrade.toLowerCase();
+            return cls.keywords.some((keyword) => studentClass === keyword || studentClass === `class ${keyword}`);
+        }
+
+        function classesPageStudentMatchesClassSection(student, cls, section = '') {
+            if (!classesPageStudentMatchesClass(student, cls)) return false;
+            const parsed = splitClassesPageClassAndSection(student?.classGrade, student?.section);
+            return getClassesPageSection(parsed.section).toLowerCase() === getClassesPageSection(section).toLowerCase();
+        }
+
+        function formatClassesPageClassSection(className, section = '') {
+            const sectionName = getClassesPageSection(section);
+            return sectionName.toLowerCase() === 'general'
+                ? `${className} - General`
+                : `${className} - Section ${sectionName}`;
+        }
+
+        function getClassesPageSectionPairs(students) {
+            const pairs = new Map();
+            const addPair = (classGrade, section = '') => {
+                const parsed = splitClassesPageClassAndSection(classGrade, section);
+                if (!parsed.classGrade) return;
+
+                const baseClass = findClassesPageClassDefinition(parsed.classGrade);
+                const classId = baseClass?.id || `custom:${parsed.classGrade.toLowerCase()}`;
+                const className = baseClass?.name || parsed.classGrade;
+                const sectionName = getClassesPageSection(parsed.section);
+                const key = `${classId}||${sectionName.toLowerCase()}`;
+                pairs.set(key, { classId, className, section: sectionName });
+            };
+
+            // Configured class-section records are the source of truth for empty sections too.
+            getData(STORAGE_KEY_CLASSES).forEach((item) => addPair(item?.name || item?.classGrade, item?.section));
+            students.forEach((student) => addPair(student?.classGrade, student?.section));
+
+            // Preserve the familiar class ladder before any sections have been configured.
+            classList.forEach((cls) => {
+                const classHasSection = [...pairs.values()].some((item) => item.classId === cls.id);
+                if (!classHasSection) addPair(cls.name, 'General');
+            });
+
+            const classOrder = new Map(classList.map((cls, index) => [cls.id, index]));
+            return [...pairs.values()].sort((first, second) => {
+                const classDifference = (classOrder.get(first.classId) ?? Number.MAX_SAFE_INTEGER) -
+                    (classOrder.get(second.classId) ?? Number.MAX_SAFE_INTEGER);
+                if (classDifference) return classDifference;
+                const nameDifference = first.className.localeCompare(second.className, undefined, { numeric: true, sensitivity: 'base' });
+                return nameDifference || first.section.localeCompare(second.section, undefined, { numeric: true, sensitivity: 'base' });
+            });
+        }
+
         function renderClassesGrid() {
             const grid = document.getElementById('classesGrid');
             const selectedCampus = typeof getGlobalCampusFilterForCurrentUser === 'function'
@@ -368,19 +475,20 @@
 
             grid.innerHTML = '';
 
-            classList.forEach(cls => {
-                const classStudents = students.filter(s => {
-                    const sClass = s.classGrade.toLowerCase().trim();
-                    return cls.keywords.some(k => sClass === k || sClass === `class ${k}`);
-                });
+            getClassesPageSectionPairs(students).forEach((pair) => {
+                const cls = getClassesPageClassDefinition(pair.classId, pair.className);
+                if (!cls) return;
+                const classStudents = students.filter((student) =>
+                    classesPageStudentMatchesClassSection(student, cls, pair.section)
+                );
 
                 const card = document.createElement('div');
                 card.className = 'class-card';
-                card.onclick = () => showClassStudents(cls.id);
+                card.onclick = () => showClassStudents(pair.classId, pair.section, pair.className);
 
                 card.innerHTML = `
                     ${classStudents.length > 0 ? `<div class="class-count">${classStudents.length}</div>` : ''}
-                    <div class="class-label">${cls.name}</div>
+                    <div class="class-label">${escapeClassesPageHtml(formatClassesPageClassSection(pair.className, pair.section))}</div>
                 `;
 
                 grid.appendChild(card);
@@ -389,23 +497,27 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
-        function showClassStudents(classId) {
-            const cls = classList.find(c => c.id === classId);
+        function showClassStudents(classId, section = 'General', className = '') {
+            const cls = getClassesPageClassDefinition(classId, className);
             if (!cls) return;
+            const sectionName = getClassesPageSection(section);
 
             document.getElementById('classesGridView').style.display = 'none';
-            document.getElementById('studentsListView').classList.add('active');
-            document.getElementById('studentsListView').dataset.currentClass = classId;
+            const studentsView = document.getElementById('studentsListView');
+            studentsView.classList.add('active');
+            studentsView.dataset.currentClass = classId;
+            studentsView.dataset.currentSection = sectionName;
+            studentsView.dataset.currentClassName = cls.name;
 
-            document.getElementById('selectedClassName').textContent = `${cls.name} Students`;
-            document.getElementById('selectedClassDesc').textContent = `Viewing all students in ${cls.name}`;
-            updatePromotionControls(classId);
-            renderPromotionHistory(classId);
+            document.getElementById('selectedClassName').textContent = `${formatClassesPageClassSection(cls.name, sectionName)} Students`;
+            document.getElementById('selectedClassDesc').textContent = `Viewing all students in ${formatClassesPageClassSection(cls.name, sectionName)}`;
+            updatePromotionControls(classId, sectionName, cls.name);
+            renderPromotionHistory(classId, sectionName, cls.name);
 
-            renderClassStudents(classId);
+            renderClassStudents(classId, sectionName, '', cls.name);
         }
 
-        function renderClassStudents(classId, searchTerm = '') {
+        function renderClassStudents(classId, section = 'General', searchTerm = '', className = '') {
             const tbody = document.getElementById('classStudentTableBody');
             const noDataMsg = document.getElementById('noClassStudentsMessage');
             const selectedCampus = typeof getGlobalCampusFilterForCurrentUser === 'function'
@@ -416,13 +528,13 @@
             const students = getData(STORAGE_KEY_STUDENTS).filter(campusMatches);
             const selectAllCheckbox = document.getElementById('selectAllStudents');
 
-            const cls = classList.find(c => c.id === classId);
+            const cls = getClassesPageClassDefinition(classId, className);
             if (!cls) return;
+            const sectionName = getClassesPageSection(section);
 
-            let classStudents = students.filter(s => {
-                const sClass = s.classGrade.toLowerCase().trim();
-                return cls.keywords.some(k => sClass === k || sClass === `class ${k}`);
-            });
+            let classStudents = students.filter((student) =>
+                classesPageStudentMatchesClassSection(student, cls, sectionName)
+            );
 
             if (searchTerm) {
                 const term = String(searchTerm || '').toLowerCase().trim();
@@ -432,6 +544,7 @@
                     String(s.studentCode || '').toLowerCase().includes(term) ||
                     String(s.fatherName || '').toLowerCase().includes(term) ||
                     String(s.campusName || '').toLowerCase().includes(term) ||
+                    String(s.section || '').toLowerCase().includes(term) ||
                     String(s.parentPhone || '').toLowerCase().includes(term)
                 );
             }
@@ -461,6 +574,7 @@
                     <td><input type="checkbox" class="student-select-checkbox" value="${student.id}" onchange="updateSelectedPromotionState()"></td>
                     <td><strong>${student.rollNo}</strong></td>
                     <td>${student.fullName}</td>
+                    <td>${escapeClassesPageHtml(getClassesPageSection(splitClassesPageClassAndSection(student.classGrade, student.section).section))}</td>
                     <td>${student.parentPhone || 'N/A'}</td>
 
                     <td><span style="background: ${statusColor}20; color: ${statusColor}; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.85rem; font-weight: 500;">${student.feesStatus}</span></td>
@@ -485,47 +599,53 @@
             return classList[currentIndex + 1];
         }
 
-        function updatePromotionControls(classId) {
-            const cls = classList.find(c => c.id === classId);
+        function updatePromotionControls(classId, section = 'General', className = '') {
+            const cls = getClassesPageClassDefinition(classId, className);
             const nextClass = getNextClass(classId);
             const summary = document.getElementById('promotionSummary');
             const promoteBtn = document.getElementById('promoteClassBtn');
             const promoteSelectedBtn = document.getElementById('promoteSelectedBtn');
+            const sectionName = getClassesPageSection(section);
 
             if (!cls || !summary || !promoteBtn || !promoteSelectedBtn) return;
 
             if (!nextClass) {
-                summary.innerText = `${cls.name} is the final stage in the current ladder. Promotion is not available.`;
+                summary.innerText = `${formatClassesPageClassSection(cls.name, sectionName)} is the final stage in the current ladder. Promotion is not available.`;
                 promoteBtn.style.display = 'none';
                 promoteSelectedBtn.style.display = 'none';
                 return;
             }
 
-            summary.innerText = `One click will promote all students from ${cls.name} to ${nextClass.name} and store this action in promotion history.`;
+            summary.innerText = `One click will promote all students from ${formatClassesPageClassSection(cls.name, sectionName)} to ${formatClassesPageClassSection(nextClass.name, sectionName)} and store this action in promotion history.`;
             promoteBtn.style.display = 'inline-flex';
             promoteSelectedBtn.style.display = 'inline-flex';
             promoteBtn.dataset.currentClass = classId;
             promoteSelectedBtn.dataset.currentClass = classId;
+            promoteBtn.dataset.currentSection = sectionName;
+            promoteSelectedBtn.dataset.currentSection = sectionName;
+            promoteBtn.dataset.currentClassName = cls.name;
+            promoteSelectedBtn.dataset.currentClassName = cls.name;
         }
 
         async function promoteCurrentClass() {
-            const currentClassId = document.getElementById('promoteClassBtn').dataset.currentClass;
-            const currentClass = classList.find(item => item.id === currentClassId);
+            const promoteButton = document.getElementById('promoteClassBtn');
+            const currentClassId = promoteButton.dataset.currentClass;
+            const currentSection = getClassesPageSection(promoteButton.dataset.currentSection);
+            const currentClass = getClassesPageClassDefinition(currentClassId, promoteButton.dataset.currentClassName || '');
             const nextClass = getNextClass(currentClassId);
             if (!currentClass || !nextClass) return;
 
             let students = getData(STORAGE_KEY_STUDENTS);
-            const matchingStudents = students.filter(student => {
-                const normalizedClass = String(student.classGrade || '').toLowerCase().trim();
-                return currentClass.keywords.some(keyword => normalizedClass === keyword || normalizedClass === `class ${keyword}`);
-            });
+            const matchingStudents = students.filter((student) =>
+                classesPageStudentMatchesClassSection(student, currentClass, currentSection)
+            );
 
             if (matchingStudents.length === 0) {
-                alert(`No students found in ${currentClass.name}.`);
+                alert(`No students found in ${formatClassesPageClassSection(currentClass.name, currentSection)}.`);
                 return;
             }
 
-            const shouldPromote = await showAppConfirm(`Promote ${matchingStudents.length} student(s) from ${currentClass.name} to ${nextClass.name}?`);
+            const shouldPromote = await showAppConfirm(`Promote ${matchingStudents.length} student(s) from ${formatClassesPageClassSection(currentClass.name, currentSection)} to ${formatClassesPageClassSection(nextClass.name, currentSection)}?`);
             if (!shouldPromote) return;
 
             students = students.map(student => {
@@ -545,7 +665,9 @@
                 id: Date.now().toString(),
                 date: new Date().toLocaleString(),
                 fromClass: currentClass.name,
+                fromSection: currentSection,
                 toClass: nextClass.name,
+                toSection: currentSection,
                 studentCount: matchingStudents.length,
                 processedBy: loggedInUser?.fullName || 'Admin User',
                 studentNames: matchingStudents.map(student => student.fullName)
@@ -553,21 +675,23 @@
             savePromotionHistory(history.slice(0, 100));
 
             if (typeof pushNotification === 'function') {
-                pushNotification('Class Promotion', `${matchingStudents.length} student(s) were promoted from ${currentClass.name} to ${nextClass.name}.`, 'user');
+                pushNotification('Class Promotion', `${matchingStudents.length} student(s) were promoted from ${formatClassesPageClassSection(currentClass.name, currentSection)} to ${formatClassesPageClassSection(nextClass.name, currentSection)}.`, 'user');
             }
 
             renderClassesGrid();
-            showClassStudents(nextClass.id);
+            showClassStudents(nextClass.id, currentSection, nextClass.name);
         }
 
-        function renderPromotionHistory(classId) {
-            const cls = classList.find(item => item.id === classId);
+        function renderPromotionHistory(classId, section = 'General', className = '') {
+            const cls = getClassesPageClassDefinition(classId, className);
             const tbody = document.getElementById('promotionHistoryBody');
             const noDataMessage = document.getElementById('noPromotionHistoryMessage');
             if (!cls || !tbody || !noDataMessage) return;
+            const sectionName = getClassesPageSection(section);
 
             const history = getPromotionHistory().filter(entry =>
-                entry.fromClass === cls.name || entry.toClass === cls.name
+                (entry.fromClass === cls.name && getClassesPageSection(entry.fromSection).toLowerCase() === sectionName.toLowerCase()) ||
+                (entry.toClass === cls.name && getClassesPageSection(entry.toSection).toLowerCase() === sectionName.toLowerCase())
             );
 
             tbody.innerHTML = '';
@@ -582,8 +706,8 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${entry.date}</td>
-                    <td>${entry.fromClass}</td>
-                    <td>${entry.toClass}</td>
+                    <td>${escapeClassesPageHtml(formatClassesPageClassSection(entry.fromClass, entry.fromSection))}</td>
+                    <td>${escapeClassesPageHtml(formatClassesPageClassSection(entry.toClass, entry.toSection))}</td>
                     <td>${entry.studentCount}</td>
                     <td>${entry.processedBy}</td>
                 `;
@@ -615,8 +739,10 @@
         }
 
         async function promoteSelectedStudents() {
-            const currentClassId = document.getElementById('promoteSelectedBtn').dataset.currentClass;
-            const currentClass = classList.find(item => item.id === currentClassId);
+            const promoteButton = document.getElementById('promoteSelectedBtn');
+            const currentClassId = promoteButton.dataset.currentClass;
+            const currentSection = getClassesPageSection(promoteButton.dataset.currentSection);
+            const currentClass = getClassesPageClassDefinition(currentClassId, promoteButton.dataset.currentClassName || '');
             const nextClass = getNextClass(currentClassId);
             const selectedIds = getSelectedStudentIds();
 
@@ -629,7 +755,7 @@
             let students = getData(STORAGE_KEY_STUDENTS);
             const selectedStudents = students.filter(student => selectedIds.includes(student.id));
 
-            const shouldPromote = await showAppConfirm(`Promote ${selectedStudents.length} selected student(s) from ${currentClass.name} to ${nextClass.name}?`);
+            const shouldPromote = await showAppConfirm(`Promote ${selectedStudents.length} selected student(s) from ${formatClassesPageClassSection(currentClass.name, currentSection)} to ${formatClassesPageClassSection(nextClass.name, currentSection)}?`);
             if (!shouldPromote) return;
 
             students = students.map(student => {
@@ -648,7 +774,9 @@
                 id: Date.now().toString(),
                 date: new Date().toLocaleString(),
                 fromClass: currentClass.name,
+                fromSection: currentSection,
                 toClass: nextClass.name,
+                toSection: currentSection,
                 studentCount: selectedStudents.length,
                 processedBy: loggedInUser?.fullName || 'Admin User',
                 studentNames: selectedStudents.map(student => student.fullName),
@@ -657,11 +785,11 @@
             savePromotionHistory(history.slice(0, 100));
 
             if (typeof pushNotification === 'function') {
-                pushNotification('Selected Promotion', `${selectedStudents.length} selected student(s) were promoted from ${currentClass.name} to ${nextClass.name}.`, 'user');
+                pushNotification('Selected Promotion', `${selectedStudents.length} selected student(s) were promoted from ${formatClassesPageClassSection(currentClass.name, currentSection)} to ${formatClassesPageClassSection(nextClass.name, currentSection)}.`, 'user');
             }
 
             renderClassesGrid();
-            showClassStudents(currentClassId);
+            showClassStudents(currentClassId, currentSection, currentClass.name);
         }
     </script>
 </body>

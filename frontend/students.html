@@ -1297,9 +1297,10 @@
                             </select>
                         </div>
                         <div class="input-group">
-                            <label>Assigned Subjects</label>
-                            <input type="text" id="studentSubjects" placeholder="e.g. English, Mathematics, Science">
-                            <small style="color:var(--text-secondary)">Enter one or more subjects separated by commas.</small>
+                            <label>Section</label>
+                            <input type="text" id="studentSection" list="studentSectionOptions" required
+                                placeholder="e.g. A">
+                            <datalist id="studentSectionOptions"></datalist>
                         </div>
                         <div class="input-group">
                             <label>Monthly Fee (PKR)</label>
@@ -1437,6 +1438,7 @@
                             <th>Father Name</th>
                             <th>DOB</th>
                             <th>Class</th>
+                            <th>Section</th>
                             <th>Campus</th>
                             <th>Gender</th>
                             <th>Fee Status</th>
@@ -1508,6 +1510,7 @@
                 <div class="student-view-item"><strong>Father Name</strong><span id="viewStudentFatherName">-</span></div>
                 <div class="student-view-item"><strong>Date of Birth</strong><span id="viewStudentDob">-</span></div>
                 <div class="student-view-item"><strong>Class</strong><span id="viewStudentClass">-</span></div>
+                <div class="student-view-item"><strong>Section</strong><span id="viewStudentSection">-</span></div>
                 <div class="student-view-item"><strong>Campus</strong><span id="viewStudentCampus">-</span></div>
                 <div class="student-view-item"><strong>Gender</strong><span id="viewStudentGender">-</span></div>
                 <div class="student-view-item"><strong>Status</strong><span id="viewStudentStatus">-</span></div>

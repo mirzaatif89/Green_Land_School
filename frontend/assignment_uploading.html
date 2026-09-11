@@ -72,6 +72,7 @@
                     <div class="assignment-upload-grid">
                         <div><label>Campus</label><select id="assignmentUploadCampus" required></select></div>
                         <div><label>Class</label><select id="assignmentUploadClass" required></select></div>
+                        <div><label>Section</label><select id="assignmentUploadSection" required></select></div>
                         <div><label>Subject</label><input id="assignmentUploadSubject" required placeholder="e.g. Mathematics"></div>
                         <div><label>Total Marks</label><input type="number" id="assignmentTotalMarks" min="1" required placeholder="100"></div>
                         <div><label>Passing Marks</label><input type="number" id="assignmentPassingMarks" min="0" required placeholder="40"></div>
@@ -82,12 +83,13 @@
                     <button type="submit" class="btn btn-primary" style="margin-top:1rem;"><i data-lucide="send"></i> Submit Assignment</button>
                 </form>
             </section>
-            <section class="schedule-panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;"><h3>Uploaded Assignments & Submissions</h3><button type="button" class="btn btn-outline" onclick="printAssignmentList()"><i data-lucide="printer"></i> Print List</button></div><div class="assignment-list-filters"><select id="assignmentFilterCampus"><option value="">All Campuses</option></select><select id="assignmentFilterClass"><option value="">All Classes</option></select><select id="assignmentFilterSubject"><option value="">All Subjects</option></select><select id="assignmentFilterStatus"><option value="">All Statuses</option><option value="Pass">Pass</option><option value="Fail">Fail</option><option value="Submitted">Submitted</option><option value="Not Submitted">Not Submitted</option></select></div><div id="assignmentUploadList"></div></section>
+            <section class="schedule-panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;"><h3>Uploaded Assignments & Submissions</h3><button type="button" class="btn btn-outline" onclick="printAssignmentList()"><i data-lucide="printer"></i> Print List</button></div><div class="assignment-list-filters"><select id="assignmentFilterCampus"><option value="">All Campuses</option></select><select id="assignmentFilterClass"><option value="">All Classes</option></select><select id="assignmentFilterSection"><option value="">All Sections</option></select><select id="assignmentFilterSubject"><option value="">All Subjects</option></select><select id="assignmentFilterStatus"><option value="">All Statuses</option><option value="Pass">Pass</option><option value="Fail">Fail</option><option value="Submitted">Submitted</option><option value="Not Submitted">Not Submitted</option></select></div><div id="assignmentUploadList"></div></section>
         </main>
     </div>
     <div id="successModal" class="success-overlay"><div class="success-modal"><div class="success-icon-wrap"><i data-lucide="check-circle"></i></div><h2 id="successTitle">Success!</h2><p id="successMessage" style="color:var(--text-secondary); margin:1rem 0 2rem;"></p><button class="btn btn-primary" style="width:100%;" onclick="closeSuccessModal()">Great!</button></div></div>
     <script src="auth.js?v=20260814-live-auth-fix1"></script>
     <script src="script.js?v=20260814-local-runtime-fix6"></script>
+    <script src="student_schedule_sections.js"></script>
     <script>
         const STUDENT_UPLOADED_ASSIGNMENT_KEY = 'eduCore_uploaded_assignments';
         function data(key) { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (_error) { return []; } }
@@ -99,14 +101,11 @@
         function populateClasses() {
             const students = data('eduCore_students');
             const classes = data('eduCore_classes');
-            const names = [...new Set([...classes.map((item) => item?.section ? `${item.name} (${item.section})` : item?.name), ...students.map((student) => student?.classGrade)].map((value) => String(value || '').trim()).filter(Boolean))]
-                .sort((a, b) => {
-                    if (typeof compareStudentClassNames === 'function') return compareStudentClassNames(a, b);
-                    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-                });
-            assignmentUploadClass.innerHTML = '<option value="">Select Class</option>' + names.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
             const campuses = [...new Set([...students.map((s) => s?.campusName), ...classes.map((c) => c?.campusName), 'Main Campus'].map((v) => String(v || '').trim()).filter(Boolean))].sort();
             assignmentUploadCampus.innerHTML = '<option value="">Select Campus</option>' + campuses.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+            const assignments = data(STUDENT_UPLOADED_ASSIGNMENT_KEY);
+            window.studentSchedulingSections?.populateClassSelect(assignmentUploadClass, assignmentUploadClass.value, assignments.map((item) => item.classGrade));
+            window.studentSchedulingSections?.populateSectionSelect(assignmentUploadSection, assignmentUploadClass.value, assignmentUploadCampus.value, assignmentUploadSection.value, assignments);
         }
         function readFile(input) {
             const file = input.files?.[0];
@@ -121,18 +120,33 @@
         function render() {
             const filterCampus = assignmentFilterCampus.value;
             const filterClass = assignmentFilterClass.value;
+            const filterSection = assignmentFilterSection.value;
             const filterSubject = assignmentFilterSubject.value;
             const filterStatus = assignmentFilterStatus.value;
             const allItems = data(STUDENT_UPLOADED_ASSIGNMENT_KEY).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-            const items = allItems.filter((item) => (!filterCampus || item.campusName === filterCampus) && (!filterClass || item.classGrade === filterClass) && (!filterSubject || item.subject === filterSubject));
+            const items = allItems.filter((item) => (!filterCampus || item.campusName === filterCampus) && (!filterClass || item.classGrade === filterClass) && (!filterSection || String(item.section || 'General') === filterSection) && (!filterSubject || item.subject === filterSubject));
             assignmentFilterCampus.innerHTML = '<option value="">All Campuses</option>' + [...new Set(allItems.map((item) => item.campusName).filter(Boolean))].sort().map((value) => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
             assignmentFilterCampus.value = filterCampus;
             assignmentFilterClass.innerHTML = '<option value="">All Classes</option>' + [...new Set(allItems.filter((item) => !filterCampus || item.campusName === filterCampus).map((item) => item.classGrade).filter(Boolean))].sort().map((value) => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
             assignmentFilterClass.value = filterClass;
-            assignmentFilterSubject.innerHTML = '<option value="">All Subjects</option>' + [...new Set(allItems.filter((item) => (!filterCampus || item.campusName === filterCampus) && (!filterClass || item.classGrade === filterClass)).map((item) => item.subject).filter(Boolean))].sort().map((value) => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
+            assignmentFilterSection.innerHTML = '<option value="">All Sections</option>' + [...new Set(allItems.filter((item) => (!filterCampus || item.campusName === filterCampus) && (!filterClass || item.classGrade === filterClass)).map((item) => item.section || 'General').filter(Boolean))].sort().map((value) => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
+            assignmentFilterSection.value = filterSection;
+            assignmentFilterSubject.innerHTML = '<option value="">All Subjects</option>' + [...new Set(allItems.filter((item) => (!filterCampus || item.campusName === filterCampus) && (!filterClass || item.classGrade === filterClass) && (!filterSection || String(item.section || 'General') === filterSection)).map((item) => item.subject).filter(Boolean))].sort().map((value) => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
             assignmentFilterSubject.value = filterSubject;
             if (!items.length) { assignmentUploadList.innerHTML = '<div class="empty-note">No assignment uploaded yet.</div>'; return; }
             assignmentUploadList.innerHTML = items.map((item) => { const students = data('eduCore_students').filter(s => String(s.campusName||'') === String(item.campusName||'') && String(s.classGrade||'') === String(item.classGrade||'')); return `<div style="margin:1rem 0;padding:1rem;border:1px solid #dbecea;border-radius:12px"><strong>${esc(item.subject)} · ${esc(item.classGrade)} · ${esc(item.campusName)}</strong><span style="margin-left:1rem">Total: ${esc(item.totalMarks)} | Pass: ${esc(item.passingMarks)}</span><br><a class="assignment-file-name" href="${item.file?.dataUrl || '#'}" download="${esc(item.file?.name || 'assignment')}">${esc(item.file?.name || 'Download')}</a><table class="schedule-table"><thead><tr><th>Student</th><th>Status</th><th>Submitted File</th><th>Marks</th><th>Result</th></tr></thead><tbody>${students.map(s => { const sub=(item.submissions||{})[s.id]||{}; const result = sub.marks === undefined || sub.marks === '' ? '-' : (Number(sub.marks) >= Number(item.passingMarks) ? 'Pass' : 'Fail'); const submittedFile = sub.fileData ? `<a href="${sub.fileData}" download="${esc(sub.fileName || 'submission')}">View file</a>` : '-'; const status = sub.submitted ? 'Submitted' : 'Not Submitted'; return `<tr><td>${esc(s.fullName||s.name||'Student')}</td><td><span>${status}</span></td><td>${submittedFile}</td><td><input style="width:90px" type="number" min="0" max="${esc(item.totalMarks)}" value="${esc(sub.marks||'')}" onchange="setMarks('${esc(item.id)}','${esc(s.id)}',this.value)"></td><td>${result}</td></tr>`; }).join('')}</tbody></table><button type="button" class="schedule-action-btn delete" onclick="deleteAssignment('${esc(item.id)}')">Delete</button></div>`; }).join('');
+            assignmentUploadList.querySelectorAll(':scope > div').forEach((card, index) => {
+                const assignment = items[index];
+                if (!assignment) return;
+                const matchingNames = new Set(data('eduCore_students')
+                    .filter((student) => String(student.campusName || '') === String(assignment.campusName || '') && String(student.classGrade || '') === String(assignment.classGrade || '') && String(student.section || 'General') === String(assignment.section || 'General'))
+                    .map((student) => String(student.fullName || student.name || 'Student')));
+                card.querySelectorAll('tbody tr').forEach((row) => {
+                    if (!matchingNames.has(String(row.cells[0]?.textContent || '').trim())) row.remove();
+                });
+                const heading = card.querySelector('strong');
+                if (heading) heading.textContent = `${assignment.subject || ''} · ${assignment.classGrade || ''} · Section ${assignment.section || 'General'} · ${assignment.campusName || ''}`;
+            });
             if (filterStatus) assignmentUploadList.querySelectorAll('tbody tr').forEach((row) => {
                 const status = row.children[1]?.textContent.trim();
                 const result = row.children[4]?.textContent.trim();
@@ -151,6 +165,7 @@
             const item = {
                 id: `UPLOADED-ASG-${Date.now()}`,
                 classGrade: assignmentUploadClass.value,
+                section: assignmentUploadSection.value,
                 campusName: assignmentUploadCampus.value,
                 subject: assignmentUploadSubject.value.trim(),
                 totalMarks: Number(assignmentTotalMarks.value),
@@ -161,7 +176,7 @@
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
-            if (!item.campusName || !item.classGrade || !item.subject || !item.totalMarks || item.passingMarks < 0 || item.passingMarks > item.totalMarks || !item.startDate || !item.dueDate || !item.file?.dataUrl) { showAppAlert('Please enter valid assignment details and passing marks.', 'Missing Assignment'); return; }
+            if (!item.campusName || !item.classGrade || !item.section || !item.subject || !item.totalMarks || item.passingMarks < 0 || item.passingMarks > item.totalMarks || !item.startDate || !item.dueDate || !item.file?.dataUrl) { showAppAlert('Please enter valid assignment details and passing marks.', 'Missing Assignment'); return; }
             if (item.dueDate < item.startDate) { showAppAlert('Due date cannot be before start date.', 'Date Error'); return; }
             const items = data(STUDENT_UPLOADED_ASSIGNMENT_KEY);
             items.unshift(item);
@@ -181,12 +196,13 @@
         function printAssignmentList() {
             const campus = assignmentFilterCampus.value;
             const className = assignmentFilterClass.value;
+            const section = assignmentFilterSection.value;
             const subject = assignmentFilterSubject.value;
             const statusFilter = assignmentFilterStatus.value;
-            const items = data(STUDENT_UPLOADED_ASSIGNMENT_KEY).filter((item) => (!campus || item.campusName === campus) && (!className || item.classGrade === className) && (!subject || item.subject === subject));
+            const items = data(STUDENT_UPLOADED_ASSIGNMENT_KEY).filter((item) => (!campus || item.campusName === campus) && (!className || item.classGrade === className) && (!section || String(item.section || 'General') === section) && (!subject || item.subject === subject));
             const rows = [];
             items.forEach((item) => {
-                data('eduCore_students').filter((student) => String(student.campusName || '') === String(item.campusName || '') && String(student.classGrade || '') === String(item.classGrade || '')).forEach((student) => {
+                data('eduCore_students').filter((student) => String(student.campusName || '') === String(item.campusName || '') && String(student.classGrade || '') === String(item.classGrade || '') && String(student.section || 'General') === String(item.section || 'General')).forEach((student) => {
                     const sub = (item.submissions || {})[student.id] || {};
                     const status = sub.submitted ? 'Submitted' : 'Not Submitted';
                     const marks = sub.marks === undefined || sub.marks === '' ? '-' : sub.marks;
@@ -197,13 +213,15 @@
             });
             const win = window.open('', '_blank');
             if (!win) return;
-            win.document.write(`<html><head><title>Assignment Report</title><style>body{font-family:Arial,sans-serif;color:#173b2d;padding:32px}header{text-align:center;border-bottom:2px solid #238b5b;padding-bottom:16px;margin-bottom:24px}header img{width:70px;height:70px;object-fit:contain}header h1{margin:8px 0 0;font-size:24px}header h2{margin:8px 0 0;font-size:20px;color:#238b5b}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #b9d8c8;padding:9px;text-align:left}th{background:#eaf6ef} .meta{margin:8px 0;color:#526b5e}</style></head><body><header><img src="images/logo.jpeg" alt="School Logo"><h1>Beacon Light School System</h1><h2>Assignment Report</h2></header><div class="meta">Campus: ${esc(campus || 'All Campuses')} | Class: ${esc(className || 'All Classes')} | Subject: ${esc(subject || 'All Subjects')} | Status: ${esc(statusFilter || 'All Statuses')}</div><table><thead><tr><th>Student Name</th><th>Status</th><th>Submitted Date</th><th>Marks</th><th>Result</th></tr></thead><tbody>${rows.join('') || '<tr><td colspan="5">No students found for selected filters.</td></tr>'}</tbody></table></body></html>`);
+            win.document.write(`<html><head><title>Assignment Report</title><style>body{font-family:Arial,sans-serif;color:#173b2d;padding:32px}header{text-align:center;border-bottom:2px solid #238b5b;padding-bottom:16px;margin-bottom:24px}header img{width:70px;height:70px;object-fit:contain}header h1{margin:8px 0 0;font-size:24px}header h2{margin:8px 0 0;font-size:20px;color:#238b5b}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #b9d8c8;padding:9px;text-align:left}th{background:#eaf6ef} .meta{margin:8px 0;color:#526b5e}</style></head><body><header><img src="images/logo.jpeg" alt="School Logo"><h1>Beacon Light School System</h1><h2>Assignment Report</h2></header><div class="meta">Campus: ${esc(campus || 'All Campuses')} | Class: ${esc(className || 'All Classes')} | Section: ${esc(section || 'All Sections')} | Subject: ${esc(subject || 'All Subjects')} | Status: ${esc(statusFilter || 'All Statuses')}</div><table><thead><tr><th>Student Name</th><th>Status</th><th>Submitted Date</th><th>Marks</th><th>Result</th></tr></thead><tbody>${rows.join('') || '<tr><td colspan="5">No students found for selected filters.</td></tr>'}</tbody></table></body></html>`);
             win.document.close();
             win.focus();
             win.print();
         }
-        [assignmentFilterCampus, assignmentFilterClass, assignmentFilterSubject, assignmentFilterStatus].forEach((filter) => filter.addEventListener('change', render));
-        populateClasses(); render(); if (window.lucide) window.lucide.createIcons();
+        [assignmentFilterCampus, assignmentFilterClass, assignmentFilterSection, assignmentFilterSubject, assignmentFilterStatus].forEach((filter) => filter.addEventListener('change', render));
+        populateClasses();
+        window.studentSchedulingSections?.bindClassSectionControls({ classSelect: assignmentUploadClass, sectionSelect: assignmentUploadSection, campusSelect: assignmentUploadCampus, include: data(STUDENT_UPLOADED_ASSIGNMENT_KEY) });
+        render(); if (window.lucide) window.lucide.createIcons();
     </script>
 </body>
 

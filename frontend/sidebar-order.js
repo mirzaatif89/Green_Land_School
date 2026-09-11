@@ -57,6 +57,7 @@
             children: [
                 { type: 'link', page: 'set_fee', label: 'Set Fees', icon: 'badge-dollar-sign' },
                 { type: 'link', page: 'fees', label: 'Fees', icon: 'credit-card' },
+                { type: 'link', page: 'fees', hash: '#direct-pay-print', label: 'Direct Pay & Print', icon: 'printer' },
                 { type: 'link', page: 'fee_challan', label: 'Fee Challan', icon: 'file-text' },
                 { type: 'link', page: 'remaining_charges', label: 'Remaining Charges', icon: 'circle-dollar-sign' },
                 { type: 'link', page: 'payment_history', label: 'Payment Statement', icon: 'receipt-text' },

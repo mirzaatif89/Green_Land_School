@@ -50,6 +50,7 @@
                     <input type="hidden" id="lectureUploadId">
                     <div class="upload-grid">
                         <div><label>Class</label><select id="lectureClass" required></select></div>
+                        <div><label>Section</label><select id="lectureSection" required></select></div>
                         <div><label>Lecture Title</label><input type="text" id="lectureTitle" required placeholder="e.g. Chapter 3 Lecture"></div>
                         <div><label>Subject</label><input type="text" id="lectureSubject" placeholder="e.g. Science"></div>
                         <div><label>Lecture Link</label><input type="url" id="lectureUrl" placeholder="https://..."></div>
@@ -64,6 +65,7 @@
     </div>
     <script src="auth.js?v=20260814-live-auth-fix1"></script>
     <script src="script.js?v=20260814-local-runtime-fix6"></script>
+    <script src="student_schedule_sections.js"></script>
     <script>
         const LECTURE_KEY = 'eduCore_uploaded_lectures';
         const API_BASE_URL = '/api';
@@ -102,14 +104,10 @@
             }
         }
         function populateClasses() {
-            const students = data('eduCore_students');
-            const classes = data('eduCore_classes');
-            const defaultClasses = ['Play Group', 'Nursarry', 'Prep', 'Class One', 'Class Two', 'Class Three', 'Class Four', 'Class Five', 'Class Six', 'Class Seven', 'Class Eight', 'Class Nine', 'Class 10'];
-            const names = [...new Set([...defaultClasses, ...classes.map((item) => item?.section ? `${item.name} (${item.section})` : item?.name), ...students.map((student) => student?.classGrade)].map((value) => String(value || '').trim()).filter(Boolean))].sort((a, b) => {
-                if (typeof compareStudentClassNames === 'function') return compareStudentClassNames(a, b);
-                return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-            });
-            lectureClass.innerHTML = '<option value="">Select Class</option>' + names.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+            const helper = window.studentSchedulingSections;
+            const lectures = data(LECTURE_KEY);
+            helper?.populateClassSelect(lectureClass, lectureClass.value, lectures.map((item) => item.classGrade));
+            helper?.populateSectionSelect(lectureSection, lectureClass.value, '', lectureSection.value, lectures);
         }
         function readFile(input) {
             const file = input.files?.[0];
@@ -119,13 +117,14 @@
         function render() {
             const items = data(LECTURE_KEY).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
             if (!items.length) { lectureUploadList.innerHTML = '<div class="empty-note">No lecture uploaded yet.</div>'; return; }
-            lectureUploadList.innerHTML = `<table class="upload-table"><thead><tr><th>Class</th><th>Lecture</th><th>Link / File</th><th>Action</th></tr></thead><tbody>${items.map((item) => `<tr><td>${esc(item.classGrade)}</td><td><strong>${esc(item.title)}</strong><br>${esc(item.subject || '-')}<br>${esc(item.details)}</td><td>${item.url ? `<a href="${esc(item.url)}" target="_blank" rel="noopener">Open Link</a><br>` : ''}${item.file?.dataUrl ? `<a href="${item.file.dataUrl}" download="${esc(item.file.name || 'lecture-file')}">${esc(item.file.name || 'Download')}</a>` : (!item.url ? '-' : '')}</td><td><div class="action-row"><button class="mini-btn edit" onclick="editItem('${item.id}')"><i data-lucide="edit-2" width="14"></i> Edit</button><button class="mini-btn delete" onclick="deleteItem('${item.id}')"><i data-lucide="trash-2" width="14"></i> Delete</button></div></td></tr>`).join('')}</tbody></table>`;
+            lectureUploadList.innerHTML = `<table class="upload-table"><thead><tr><th>Class</th><th>Section</th><th>Lecture</th><th>Link / File</th><th>Action</th></tr></thead><tbody>${items.map((item) => `<tr><td>${esc(item.classGrade)}</td><td>${esc(item.section || 'General')}</td><td><strong>${esc(item.title)}</strong><br>${esc(item.subject || '-')}<br>${esc(item.details)}</td><td>${item.url ? `<a href="${esc(item.url)}" target="_blank" rel="noopener">Open Link</a><br>` : ''}${item.file?.dataUrl ? `<a href="${item.file.dataUrl}" download="${esc(item.file.name || 'lecture-file')}">${esc(item.file.name || 'Download')}</a>` : (!item.url ? '-' : '')}</td><td><div class="action-row"><button class="mini-btn edit" onclick="editItem('${item.id}')"><i data-lucide="edit-2" width="14"></i> Edit</button><button class="mini-btn delete" onclick="deleteItem('${item.id}')"><i data-lucide="trash-2" width="14"></i> Delete</button></div></td></tr>`).join('')}</tbody></table>`;
             if (window.lucide) lucide.createIcons();
         }
         function editItem(id) {
             const item = data(LECTURE_KEY).find((entry) => entry.id === id);
             if (!item) return;
             lectureUploadId.value = item.id; lectureClass.value = item.classGrade || ''; lectureTitle.value = item.title || ''; lectureSubject.value = item.subject || ''; lectureUrl.value = item.url || ''; lectureDetails.value = item.details || '';
+            window.studentSchedulingSections?.populateSectionSelect(lectureSection, lectureClass.value, '', item.section || 'General', data(LECTURE_KEY));
             lectureSaveBtn.innerHTML = '<i data-lucide="save"></i> Update Lecture';
             lectureUploadForm.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (window.lucide) lucide.createIcons();
         }
@@ -139,8 +138,8 @@
             const editId = lectureUploadId.value;
             const existing = data(LECTURE_KEY).find((item) => item.id === editId);
             const file = await readFile(lectureFile);
-            const item = { id: editId || `LECTURE-${Date.now()}`, classGrade: lectureClass.value, title: lectureTitle.value.trim(), subject: lectureSubject.value.trim(), url: lectureUrl.value.trim(), details: lectureDetails.value.trim(), file: file || existing?.file || null, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
-            if (!item.classGrade || !item.title || !item.details) { showAppAlert('Class, title, and notes are required.', 'Missing Lecture'); return; }
+            const item = { id: editId || `LECTURE-${Date.now()}`, classGrade: lectureClass.value, section: lectureSection.value, title: lectureTitle.value.trim(), subject: lectureSubject.value.trim(), url: lectureUrl.value.trim(), details: lectureDetails.value.trim(), file: file || existing?.file || null, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
+            if (!item.classGrade || !item.section || !item.title || !item.details) { showAppAlert('Class, section, title, and notes are required.', 'Missing Lecture'); return; }
             const items = data(LECTURE_KEY); const index = items.findIndex((entry) => entry.id === editId);
             if (index >= 0) items[index] = item; else items.push(item);
             if (!save(LECTURE_KEY, items)) return;
@@ -154,6 +153,7 @@
             event.target.reset(); lectureUploadId.value = ''; lectureSaveBtn.innerHTML = '<i data-lucide="save"></i> Save Lecture'; render(); showSuccessModal(editId ? 'Lecture Updated!' : 'Lecture Uploaded!', 'Lecture is visible in student portal.');
         });
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', populateClasses); else populateClasses();
+        window.studentSchedulingSections?.bindClassSectionControls({ classSelect: lectureClass, sectionSelect: lectureSection, include: data(LECTURE_KEY) });
         loadLecturesFromApi().then(syncLocalLecturesToApi).finally(render);
         render();
         if (window.lucide) lucide.createIcons();

@@ -1072,6 +1072,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).catch(() => {
             bindStudentClassFeeAutoFill();
         });
+        bindStudentSectionSelector();
         bindStudentFormSubmit();
         const studentSearch = document.getElementById('studentSearchInput');
         const quickFilter = document.getElementById('studentQuickFilter');
@@ -1121,6 +1122,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tSearch = document.getElementById('teacherSearchInput');
         const tCampusFilter = document.getElementById('teacherCampusFilter');
         const tGenderFilter = document.getElementById('teacherGenderFilter');
+        const tSectionFilter = document.getElementById('teacherSectionFilter');
         const teacherProfileImage = document.getElementById('tProfileImage');
         const teacherNameInput = document.getElementById('tFullName');
         if (teacherProfileImage) {
@@ -1149,6 +1151,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (tGenderFilter) {
             tGenderFilter.addEventListener('change', () => {
+                renderTeachers((tSearch?.value || '').toLowerCase());
+            });
+        }
+        if (tSectionFilter) {
+            tSectionFilter.addEventListener('change', () => {
                 renderTeachers((tSearch?.value || '').toLowerCase());
             });
         }
@@ -1471,6 +1478,256 @@ function normalizeTeacherSchedule(schedule) {
         }
     }
     return [];
+}
+
+const DEFAULT_TEACHER_SCHEDULE_CLASSES = [
+    'Play Group', 'Nursarry', 'Prep',
+    'Class One', 'Class Two', 'Class Three', 'Class Four', 'Class Five',
+    'Class Six', 'Class Seven', 'Class Eight', 'Class Nine', 'Class 10'
+];
+
+function splitTeacherClassAndSection(classGrade = '', section = '') {
+    const suppliedSection = String(section || '').trim();
+    const rawClass = String(classGrade || '').trim();
+    const combinedMatch = rawClass.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+    return {
+        classGrade: String(combinedMatch ? combinedMatch[1] : rawClass).trim(),
+        section: suppliedSection || String(combinedMatch?.[2] || '').trim()
+    };
+}
+
+function formatTeacherClassSection(classGrade = '', section = '') {
+    const normalized = splitTeacherClassAndSection(classGrade, section);
+    if (!normalized.classGrade) return '-';
+    return normalized.section && normalized.section.toLowerCase() !== 'general'
+        ? `${normalized.classGrade} - Section ${normalized.section}`
+        : `${normalized.classGrade} - General`;
+}
+
+function parseTeacherAssignedSections(value = '') {
+    let rawEntries = value;
+    if (typeof value === 'string') {
+        try {
+            rawEntries = JSON.parse(value);
+        } catch (_error) {
+            rawEntries = value.split(/[;,\n]/).map((item) => item.trim()).filter(Boolean);
+        }
+    }
+    if (!Array.isArray(rawEntries)) rawEntries = rawEntries ? [rawEntries] : [];
+
+    const entries = new Map();
+    rawEntries.forEach((item) => {
+        let classGrade = '';
+        let section = '';
+        if (item && typeof item === 'object') {
+            classGrade = item.classGrade || item.className || item.class || item.name || '';
+            section = item.section || '';
+        } else {
+            const text = String(item || '').trim();
+            const separatorIndex = text.indexOf('||');
+            if (separatorIndex >= 0) {
+                classGrade = text.slice(0, separatorIndex);
+                section = text.slice(separatorIndex + 2);
+            } else {
+                const sectionLabelMatch = text.match(/^(.*?)\s+-\s+Section\s+(.+)$/i);
+                classGrade = sectionLabelMatch ? sectionLabelMatch[1] : text;
+                section = sectionLabelMatch?.[2] || '';
+            }
+        }
+        const normalized = splitTeacherClassAndSection(classGrade, section);
+        if (!normalized.classGrade) return;
+        const sectionName = normalized.section || 'General';
+        entries.set(`${normalized.classGrade.toLowerCase()}||${sectionName.toLowerCase()}`, {
+            classGrade: normalized.classGrade,
+            section: sectionName
+        });
+    });
+    return [...entries.values()];
+}
+
+function getTeacherAssignedSectionEntries(teacher = {}) {
+    return parseTeacherAssignedSections(teacher?.assignedSections);
+}
+
+function getTeacherAssignmentEntries(teacher = {}) {
+    const entries = new Map();
+    const addEntry = (classGrade, section = '') => {
+        const normalized = splitTeacherClassAndSection(classGrade, section);
+        if (!normalized.classGrade) return;
+        const sectionName = normalized.section || 'General';
+        entries.set(`${normalized.classGrade.toLowerCase()}||${sectionName.toLowerCase()}`, {
+            classGrade: normalized.classGrade,
+            section: sectionName
+        });
+    };
+
+    getTeacherAssignedSectionEntries(teacher).forEach((item) => addEntry(item.classGrade, item.section));
+    normalizeTeacherSchedule(teacher?.schedule).forEach((item) => {
+        addEntry(item?.classGrade || item?.class || item?.className, item?.section);
+    });
+    getArrayData('eduCore_teacher_class_assignments')
+        .filter((assignment) => String(assignment?.teacherId || '') === String(teacher?.id || ''))
+        .forEach((assignment) => addEntry(assignment?.classGrade || assignment?.className, assignment?.section));
+    return [...entries.values()];
+}
+
+function getTeacherClassSectionCatalog() {
+    const catalog = new Map();
+    const addPair = (classGrade, section = '') => {
+        const normalized = splitTeacherClassAndSection(classGrade, section);
+        if (!normalized.classGrade) return;
+
+        const key = normalized.classGrade.toLowerCase();
+        if (!catalog.has(key)) {
+            catalog.set(key, { name: normalized.classGrade, sections: new Map() });
+        }
+        if (normalized.section) {
+            const sectionKey = normalized.section.toLowerCase();
+            catalog.get(key).sections.set(sectionKey, normalized.section);
+        }
+    };
+
+    DEFAULT_TEACHER_SCHEDULE_CLASSES.forEach((classGrade) => addPair(classGrade));
+    getArrayData(STORAGE_KEY_CLASSES).forEach((item) => addPair(item?.name || item?.classGrade, item?.section));
+    getArrayData(STORAGE_KEY_STUDENTS).forEach((student) => addPair(student?.classGrade, student?.section));
+    getArrayData(STORAGE_KEY_TEACHERS).forEach((teacher) => {
+        normalizeTeacherSchedule(teacher?.schedule).forEach((item) => addPair(item?.classGrade || item?.class || item?.className, item?.section));
+        getTeacherAssignedSectionEntries(teacher).forEach((item) => addPair(item.classGrade, item.section));
+    });
+    getArrayData('eduCore_teacher_class_assignments').forEach((assignment) => {
+        addPair(assignment?.classGrade || assignment?.className, assignment?.section);
+    });
+
+    return [...catalog.values()]
+        .map((item) => ({
+            name: item.name,
+            sections: [...item.sections.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+        }))
+        .sort((a, b) => typeof compareStudentClassNames === 'function'
+            ? compareStudentClassNames(a.name, b.name)
+            : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+function getTeacherSectionsForClass(classGrade = '') {
+    const targetClass = splitTeacherClassAndSection(classGrade).classGrade.toLowerCase();
+    return getTeacherClassSectionCatalog()
+        .find((item) => item.name.toLowerCase() === targetClass)?.sections || [];
+}
+
+function populateTeacherAssignedSectionOptions(selectedAssignedSections = '') {
+    const select = document.getElementById('tAssignedSections');
+    if (!select) return;
+
+    const selectedEntries = parseTeacherAssignedSections(selectedAssignedSections);
+    const options = new Map();
+    const addOption = (classGrade, section = '') => {
+        const normalized = splitTeacherClassAndSection(classGrade, section);
+        if (!normalized.classGrade) return;
+        const sectionName = normalized.section || 'General';
+        options.set(`${normalized.classGrade.toLowerCase()}||${sectionName.toLowerCase()}`, {
+            classGrade: normalized.classGrade,
+            section: sectionName
+        });
+    };
+
+    getTeacherClassSectionCatalog().forEach((item) => {
+        const sections = item.sections.length ? item.sections : ['General'];
+        sections.forEach((section) => addOption(item.name, section));
+    });
+    selectedEntries.forEach((item) => addOption(item.classGrade, item.section));
+
+    select.innerHTML = [...options.values()]
+        .sort((a, b) => {
+            const classCompare = typeof compareStudentClassNames === 'function'
+                ? compareStudentClassNames(a.classGrade, b.classGrade)
+                : a.classGrade.localeCompare(b.classGrade, undefined, { numeric: true, sensitivity: 'base' });
+            return classCompare || a.section.localeCompare(b.section, undefined, { numeric: true, sensitivity: 'base' });
+        })
+        .map((item) => `<option value="${escapeHtml(`${item.classGrade}||${item.section}`)}">${escapeHtml(formatTeacherClassSection(item.classGrade, item.section))}</option>`)
+        .join('');
+
+    const selectedKeys = new Set(selectedEntries.map((item) => `${item.classGrade.toLowerCase()}||${item.section.toLowerCase()}`));
+    Array.from(select.options).forEach((option) => {
+        option.selected = selectedKeys.has(String(option.value).toLowerCase());
+    });
+}
+
+function getSelectedTeacherAssignedSections() {
+    const select = document.getElementById('tAssignedSections');
+    if (!select) return [];
+    return parseTeacherAssignedSections(Array.from(select.selectedOptions).map((option) => option.value));
+}
+
+function populateTeacherScheduleClassOptions(selectedClass = '') {
+    const classSelect = document.getElementById('scheduleClass');
+    if (!classSelect) return;
+
+    const selected = splitTeacherClassAndSection(selectedClass).classGrade;
+    const classes = getTeacherClassSectionCatalog();
+    classSelect.innerHTML = '<option value="">Select Class</option>' + classes.map((item) => (
+        `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}</option>`
+    )).join('');
+    classSelect.value = selected;
+    if (selected && classSelect.value !== selected) {
+        classSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(selected)}">${escapeHtml(selected)}</option>`);
+        classSelect.value = selected;
+    }
+}
+
+function refreshTeacherScheduleSectionOptions(selectedSection = '') {
+    const classSelect = document.getElementById('scheduleClass');
+    const sectionSelect = document.getElementById('scheduleSection');
+    if (!classSelect || !sectionSelect) return;
+
+    const classGrade = splitTeacherClassAndSection(classSelect.value).classGrade;
+    const selected = String(selectedSection || '').trim();
+    if (!classGrade) {
+        sectionSelect.disabled = true;
+        sectionSelect.innerHTML = '<option value="">Select Class First</option>';
+        return;
+    }
+
+    const sections = getTeacherSectionsForClass(classGrade);
+    const availableSections = sections.length ? sections : ['General'];
+    if (selected && !availableSections.some((item) => item.toLowerCase() === selected.toLowerCase())) {
+        availableSections.push(selected);
+    }
+    sectionSelect.disabled = false;
+    sectionSelect.innerHTML = availableSections.map((section) => (
+        `<option value="${escapeHtml(section)}">${escapeHtml(section)}</option>`
+    )).join('');
+    sectionSelect.value = selected || availableSections[0] || '';
+}
+
+function getTeacherAssignedSections(teacher = {}) {
+    const uniqueSections = new Map();
+    getTeacherAssignmentEntries(teacher).forEach((item) => {
+        uniqueSections.set(String(item.section || 'General').toLowerCase(), item.section || 'General');
+    });
+    return [...uniqueSections.values()];
+}
+
+function populateTeacherSectionFilter() {
+    const sectionFilter = document.getElementById('teacherSectionFilter');
+    if (!sectionFilter) return;
+
+    const selected = String(sectionFilter.value || '').trim();
+    const sections = new Map();
+    sections.set('general', 'General');
+    getTeacherClassSectionCatalog().forEach((item) => item.sections.forEach((section) => {
+        sections.set(section.toLowerCase(), section);
+    }));
+    getArrayData(STORAGE_KEY_TEACHERS).forEach((teacher) => {
+        getTeacherAssignedSections(teacher).forEach((section) => {
+            const key = String(section).toLowerCase();
+            if (!sections.has(key)) sections.set(key, section);
+        });
+    });
+    sectionFilter.innerHTML = '<option value="">All Sections</option>' + [...sections.values()]
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+        .map((section) => `<option value="${escapeHtml(section)}">Section ${escapeHtml(section)}</option>`)
+        .join('');
+    sectionFilter.value = selected;
 }
 
 function formatScheduleTime(startTime = '', endTime = '') {
@@ -3396,6 +3653,7 @@ function renderAdminSidebarSequence() {
             children: [
                 { page: 'set_fee.html', label: 'Set Fees', icon: 'badge-dollar-sign' },
                 { page: 'fees.html', label: 'Fees', icon: 'credit-card' },
+                { page: 'fees.html', hash: '#direct-pay-print', label: 'Direct Pay & Print', icon: 'printer' },
                 { page: 'fee_challan.html', label: 'Fee Challan', icon: 'file-text' },
                 { page: 'remaining_charges.html', label: 'Remaining Charges', icon: 'circle-dollar-sign' },
                 { page: 'payment_history.html', label: 'Payment Statement', icon: 'receipt-text' },
@@ -4048,7 +4306,7 @@ function renderDashboardTable(term = '') {
     // Use students data for the "Activity" table
     const students = getDashboardCampusFilteredRecords(getArrayData(STORAGE_KEY_STUDENTS));
     const filtered = students.filter(s => recordMatchesSearch(s, term, [
-        'studentCode', 'fullName', 'fatherName', 'rollNo', 'classGrade', 'campusName',
+        'studentCode', 'fullName', 'fatherName', 'rollNo', 'classGrade', 'section', 'campusName',
         'gender', 'parentPhone', 'feesStatus', 'username'
     ]));
 
@@ -5149,6 +5407,8 @@ function toggleStudentForm(editMode = false) {
                 classSelect.appendChild(opt);
             });
         }
+        populateStudentSectionOptions();
+        bindStudentSectionSelector();
         ensureStudentCampusDefault();
         bindStudentCampusCodeSync();
         container.style.display = 'block';
@@ -5184,6 +5444,7 @@ async function validateStudentRequiredFields() {
         ['fatherName', "Father's Name"],
         ['studentDob', 'Date of Birth'],
         ['classGrade', 'Class'],
+        ['studentSection', 'Section'],
         ['campusName', 'Campus'],
         ['parentPhone', 'Contact Phone'],
         ['gender', 'Gender']
@@ -5260,11 +5521,73 @@ function getAvailableStudentClassOptions() {
 
     DEFAULT_STUDENT_CLASS_ORDER.forEach(addClass);
     getData(STORAGE_KEY_CLASSES).forEach((item) => {
-        const val = item?.section ? `${item.name} (${item.section})` : item?.name;
-        addClass(val);
+        addClass(splitStudentClassAndSection(item?.name || item?.classGrade).classGrade);
+    });
+    getArrayData(STORAGE_KEY_STUDENTS).forEach((student) => {
+        addClass(splitStudentClassAndSection(student?.classGrade).classGrade);
     });
 
     return classes;
+}
+
+function splitStudentClassAndSection(classGrade = '', section = '') {
+    const rawClass = String(classGrade || '').trim();
+    const suppliedSection = String(section || '').trim();
+    const combinedMatch = rawClass.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+    return {
+        classGrade: String(combinedMatch ? combinedMatch[1] : rawClass).trim(),
+        section: suppliedSection || String(combinedMatch?.[2] || '').trim()
+    };
+}
+
+function getAvailableStudentSectionOptions(classGrade = '', campusName = '') {
+    const targetClass = splitStudentClassAndSection(classGrade).classGrade.toLowerCase();
+    const targetCampus = String(campusName || '').trim().toLowerCase();
+    if (!targetClass) return [];
+
+    const sections = new Map();
+    const addSection = (record) => {
+        const normalized = splitStudentClassAndSection(record?.name || record?.classGrade, record?.section);
+        const recordCampus = String(record?.campusName || record?.branchName || record?.campus || '').trim().toLowerCase();
+        if (normalized.classGrade.toLowerCase() !== targetClass) return;
+        if (targetCampus && recordCampus && recordCampus !== targetCampus) return;
+        if (!normalized.section) return;
+        sections.set(normalized.section.toLowerCase(), normalized.section);
+    };
+
+    getData(STORAGE_KEY_CLASSES).forEach(addSection);
+    getArrayData(STORAGE_KEY_STUDENTS).forEach(addSection);
+    return [...sections.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+function populateStudentSectionOptions(selectedSection = '') {
+    const sectionInput = document.getElementById('studentSection');
+    const optionList = document.getElementById('studentSectionOptions');
+    const classSelect = document.getElementById('classGrade');
+    const campusSelect = document.getElementById('campusName');
+    if (!sectionInput || !optionList || !classSelect) return;
+
+    const selected = String(selectedSection || sectionInput.value || '').trim();
+    const sections = getAvailableStudentSectionOptions(classSelect.value, campusSelect?.value || '');
+    optionList.innerHTML = sections.map((section) => `<option value="${escapeHtml(section)}"></option>`).join('');
+    if (selected) sectionInput.value = selected;
+}
+
+function bindStudentSectionSelector() {
+    const classSelect = document.getElementById('classGrade');
+    const campusSelect = document.getElementById('campusName');
+    if (classSelect && classSelect.dataset.studentSectionBound !== '1') {
+        classSelect.dataset.studentSectionBound = '1';
+        classSelect.addEventListener('change', () => {
+            const sectionInput = document.getElementById('studentSection');
+            if (sectionInput) sectionInput.value = '';
+            populateStudentSectionOptions();
+        });
+    }
+    if (campusSelect && campusSelect.dataset.studentSectionBound !== '1') {
+        campusSelect.dataset.studentSectionBound = '1';
+        campusSelect.addEventListener('change', () => populateStudentSectionOptions());
+    }
 }
 
 function normalizeClassFeeConfig(input = {}) {
@@ -5728,6 +6051,7 @@ async function handleStudentFormSubmit(e) {
         ['fatherName', "Father's Name is required."],
         ['studentDob', 'Date of Birth is required.'],
         ['classGrade', 'Class is required.'],
+        ['studentSection', 'Section is required.'],
         ['campusName', 'Campus Name is required.'],
         ['gender', 'Gender is required.']
     ];
@@ -5793,7 +6117,9 @@ async function handleStudentFormSubmit(e) {
     updateExplicitFamilyRelationDetails(familyId, fatherNameInput, parentPhone, guardianName, guardianContact);
     const matchedFamilyAddedAt = relationFamilyMatch?.createdAt || getFamilies().find((family) => String(family.id || '') === String(familyId || ''))?.createdAt || '';
     await loadClassFeeDefaults();
-    const selectedClassGrade = document.getElementById('classGrade').value;
+    const selectedClassDetails = splitStudentClassAndSection(document.getElementById('classGrade').value, document.getElementById('studentSection')?.value);
+    const selectedClassGrade = selectedClassDetails.classGrade;
+    const selectedSection = selectedClassDetails.section;
     const resolvedFee = resolveStudentMonthlyFeeForSave(selectedClassGrade, monthlyFeeInput, zeroFeeReasonInput);
     if (Number(resolvedFee.monthlyFee || 0) <= 0 && !zeroFeeReasonInput) {
         alert('Please enter the reason why this student has zero fee / free study.');
@@ -5827,7 +6153,9 @@ async function handleStudentFormSubmit(e) {
         dob: document.getElementById('studentDob').value,
         admissionDate: document.getElementById('admissionDate') ? document.getElementById('admissionDate').value : (existingStudent?.admissionDate || ''),
         classGrade: selectedClassGrade,
-        subjects: (document.getElementById('studentSubjects')?.value ?? (existingStudent?.subjects || '')).split(/[,|]/).map(value => value.trim()).filter(Boolean).join(', '),
+        section: selectedSection,
+        // Subjects are allocated by admins through Student Scheduling, never from admission.
+        subjects: existingStudent?.subjects || '',
         campusName: document.getElementById('campusName').value,
         parentPhone,
         address: studentAddress,
@@ -6237,7 +6565,7 @@ function handleTeacherActionSelect(selectElement, encodedPayload, teacherId) {
 function viewStudent(student) {
     const modal = document.getElementById('studentViewModal');
     if (!modal) {
-        const compactDetails = `ID: ${student.studentCode || '-'} | Name: ${student.fullName || '-'} | Class: ${student.classGrade || '-'} | Campus: ${student.campusName || '-'}`;
+        const compactDetails = `ID: ${student.studentCode || '-'} | Name: ${student.fullName || '-'} | Class: ${student.classGrade || '-'} | Section: ${student.section || 'General'} | Campus: ${student.campusName || '-'}`;
         showAppAlert(compactDetails, 'Student Details');
         return;
     }
@@ -6248,6 +6576,7 @@ function viewStudent(student) {
         viewStudentFatherName: student.fatherName || '-',
         viewStudentDob: formatDateForDisplay(student.dob),
         viewStudentClass: student.classGrade || '-',
+        viewStudentSection: student.section || 'General',
         viewStudentCampus: student.campusName || '-',
         viewStudentGender: student.gender || '-',
         viewStudentStatus: isStudentTerminated(student) ? 'Terminated' : (student.feesStatus || 'Pending'),
@@ -7131,6 +7460,7 @@ function renderStudents(term = '') {
                 <td class="cell-compact">${s.fatherName || '-'}</td>
                 <td>${formatDateForDisplay(s.dob)}</td>
                 <td class="cell-compact">${s.classGrade}</td>
+                <td class="cell-compact">${s.section || 'General'}</td>
                 <td class="cell-compact">${s.campusName || '-'}</td>
                 <td>${s.gender || '-'}</td>
                 <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
@@ -7810,6 +8140,7 @@ function printStudentAdmissionForm(student = {}) {
         ['Date of Birth', formatDateSafe(student.dob), true],
         ['Admission Date', formatDateSafe(student.admissionDate || student.createdAt), true],
         ['Class', student.classGrade],
+        ['Section', student.section || 'General'],
         ['Campus Name', student.campusName],
         ['Gender', student.gender],
         ['Contact Phone', student.parentPhone],
@@ -8015,9 +8346,17 @@ function editStudent(s) {
     document.getElementById('fatherName').value = s.fatherName || '';
     if (document.getElementById('studentDob')) document.getElementById('studentDob').value = s.dob || '';
     if (document.getElementById('admissionDate')) document.getElementById('admissionDate').value = normalizeDateInputValue(s.admissionDate || s.createdAt || '');
-    document.getElementById('classGrade').value = s.classGrade;
-    if (document.getElementById('studentSubjects')) document.getElementById('studentSubjects').value = Array.isArray(s.subjects) ? s.subjects.join(', ') : (s.subjects || '');
+    const studentClassDetails = splitStudentClassAndSection(s.classGrade, s.section);
+    const classField = document.getElementById('classGrade');
+    if (classField) {
+        classField.value = studentClassDetails.classGrade;
+        if (classField.value !== studentClassDetails.classGrade && studentClassDetails.classGrade) {
+            classField.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(studentClassDetails.classGrade)}">${escapeHtml(studentClassDetails.classGrade)}</option>`);
+            classField.value = studentClassDetails.classGrade;
+        }
+    }
     document.getElementById('campusName').value = s.campusName || '';
+    populateStudentSectionOptions(studentClassDetails.section || 'General');
     document.getElementById('parentPhone').value = s.parentPhone;
     if (document.getElementById('studentAddress')) document.getElementById('studentAddress').value = s.address || '';
     if (document.getElementById('guardianName')) document.getElementById('guardianName').value = s.guardianName || '';
@@ -8113,6 +8452,7 @@ function toggleTeacherForm(editMode = false) {
             document.getElementById('teacherId').value = '';
             const teacherCodeField = document.getElementById('teacherCode');
             if (teacherCodeField) teacherCodeField.value = generateEntityCode(STORAGE_KEY_TEACHERS, 'TCH');
+            populateTeacherAssignedSectionOptions();
             title.innerText = 'Add New Teacher';
         } else {
             title.innerText = 'Edit Teacher Details';
@@ -8228,10 +8568,12 @@ function clearTeacherListFilters() {
     const searchInput = document.getElementById('teacherSearchInput');
     const campusFilter = document.getElementById('teacherCampusFilter');
     const genderFilter = document.getElementById('teacherGenderFilter');
+    const sectionFilter = document.getElementById('teacherSectionFilter');
 
     if (searchInput) searchInput.value = '';
     if (campusFilter) campusFilter.value = '';
     if (genderFilter) genderFilter.value = '';
+    if (sectionFilter) sectionFilter.value = '';
 }
 
 async function handleTeacherFormSubmit(e) {
@@ -8302,6 +8644,7 @@ async function handleTeacherFormSubmit(e) {
         designation: document.getElementById('tDesignation')?.value || 'Teacher',
         groupKey: getDesignationGroup('tDesignation', 'teacher'),
         subject: document.getElementById('tSubject').value,
+        assignedSections: JSON.stringify(getSelectedTeacherAssignedSections()),
         fingerprintData: document.getElementById('tFingerprintData') ? document.getElementById('tFingerprintData').value.trim() : (existingTeacher?.fingerprintData || ''),
         salary: salaryValInput,
         username: usernameInput,
@@ -8372,6 +8715,7 @@ function openTeacherSchedule(teacherId) {
     teacherScheduleDraft = normalizeTeacherSchedule(teacher.schedule).map(item => ({ ...item }));
     document.getElementById('scheduleTeacherId').value = teacher.id;
     document.getElementById('scheduleModalTitle').innerText = `Schedule: ${teacher.fullName}`;
+    populateTeacherScheduleClassOptions();
     clearTeacherScheduleDraft();
     renderTeacherScheduleDraft();
     modal.style.display = 'flex';
@@ -8389,19 +8733,21 @@ function clearTeacherScheduleDraft() {
         const field = document.getElementById(id);
         if (field) field.value = '';
     });
+    refreshTeacherScheduleSectionOptions();
 }
 
 function addTeacherScheduleItem() {
     const day = document.getElementById('scheduleDay').value;
     const classGrade = document.getElementById('scheduleClass').value.trim();
+    const section = document.getElementById('scheduleSection').value.trim();
     const subject = document.getElementById('scheduleSubject').value.trim();
     const startTime = document.getElementById('scheduleStartTime').value;
     const endTime = document.getElementById('scheduleEndTime').value;
     const room = document.getElementById('scheduleRoom').value.trim();
     const note = document.getElementById('scheduleNote').value.trim();
 
-    if (!day || !classGrade || !subject || !startTime || !endTime) {
-        alert('Please add day, class, lecture, start time, and end time.');
+    if (!day || !classGrade || !section || !subject || !startTime || !endTime) {
+        alert('Please add day, class, section, lecture, start time, and end time.');
         return;
     }
 
@@ -8414,6 +8760,7 @@ function addTeacherScheduleItem() {
         id: generateUniqueRecordId('SCH'),
         day,
         classGrade,
+        section,
         subject,
         startTime,
         endTime,
@@ -8449,7 +8796,7 @@ function renderTeacherScheduleDraft() {
     list.innerHTML = teacherScheduleDraft.map((item) => `
         <div class="schedule-row">
             <div><strong>${item.day}</strong><br><span>${formatScheduleTime(item.startTime, item.endTime)}</span></div>
-            <div><strong>${item.subject}</strong><br><span>${item.classGrade}</span></div>
+            <div><strong>${item.subject}</strong><br><span>${formatTeacherClassSection(item.classGrade, item.section)}</span></div>
             <div><strong>${item.room || '-'}</strong><br><span>${item.note || 'No note'}</span></div>
             <div><span>Lecture</span></div>
             <button type="button" class="action-btn btn-delete" onclick="removeTeacherScheduleItem('${item.id}')">
@@ -8485,10 +8832,13 @@ function renderTeachers(term = null) {
     if (typeof term !== 'string') term = document.getElementById('teacherSearchInput')?.value || '';
     term = term.toLowerCase().trim();
 
+    populateTeacherSectionFilter();
     const campusFilter = document.getElementById('teacherCampusFilter');
     const genderFilter = document.getElementById('teacherGenderFilter');
+    const sectionFilter = document.getElementById('teacherSectionFilter');
     const selectedCampus = campusFilter ? campusFilter.value : '';
     const selectedGender = genderFilter ? genderFilter.value : '';
+    const selectedSection = String(sectionFilter?.value || '').toLowerCase();
     const teachers = getGlobalCampusFilteredRecords(getArrayData(STORAGE_KEY_TEACHERS));
     const teacherSearchFields = [
         'employeeCode', 'fullName', 'fatherName', 'dob', 'cnic', 'phone', 'email',
@@ -8496,12 +8846,17 @@ function renderTeachers(term = null) {
         'salary', 'username', 'plainPassword', 'bankName', 'bankAccountNumber'
     ];
     const filtered = teachers
-        .filter(t =>
-            !isTeacherStuckOff(t) &&
-            recordMatchesSearch(t, term, teacherSearchFields) &&
-            (!selectedCampus || (t.campusName || '') === selectedCampus) &&
-            (!selectedGender || (t.gender || '') === selectedGender)
-        )
+        .filter(t => {
+            const assignmentSearchText = getTeacherAssignmentEntries(t)
+                .map((item) => formatTeacherClassSection(item.classGrade, item.section))
+                .join(' ')
+                .toLowerCase();
+            return !isTeacherStuckOff(t) &&
+                (recordMatchesSearch(t, term, teacherSearchFields) || assignmentSearchText.includes(term)) &&
+                (!selectedCampus || (t.campusName || '') === selectedCampus) &&
+                (!selectedGender || (t.gender || '') === selectedGender) &&
+                (!selectedSection || getTeacherAssignedSections(t).some((section) => String(section).toLowerCase() === selectedSection));
+        })
         .sort((a, b) => {
             const codeA = String(a.employeeCode || a.id || '').toLowerCase();
             const codeB = String(b.employeeCode || b.id || '').toLowerCase();
@@ -8551,6 +8906,9 @@ function renderTeachers(term = null) {
         filtered.forEach(t => {
             const encodedTeacher = encodeURIComponent(JSON.stringify(t));
             const normalizedTeacherDesignation = normalizeTeacherDesignation(t.designation, t.groupKey);
+            const assignedSectionSummary = getTeacherAssignmentEntries(t)
+                .map((item) => formatTeacherClassSection(item.classGrade, item.section))
+                .join(', ');
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><div class="teacher-name-cell">
@@ -8566,6 +8924,7 @@ function renderTeachers(term = null) {
                 <td class="teacher-cell-compact">${t.campusName || '-'}</td>
                 <td class="teacher-cell-compact">
                     <div>${t.subject || '-'}</div>
+                    ${assignedSectionSummary ? `<div style="font-size:0.72rem;color:var(--text-secondary);margin-top:0.18rem;line-height:1.25;">${escapeHtml(assignedSectionSummary)}</div>` : ''}
                 </td>
                 <td class="teacher-login-details">
                     <div>
@@ -8613,6 +8972,7 @@ function editTeacher(t) {
     document.getElementById('tGender').value = t.gender || '';
     setDesignationSelectValue('tDesignation', normalizedTeacherDesignation.designation, normalizedTeacherDesignation.groupKey);
     document.getElementById('tSubject').value = t.subject;
+    populateTeacherAssignedSectionOptions(t.assignedSections);
     if (document.getElementById('tFingerprintData')) document.getElementById('tFingerprintData').value = t.fingerprintData || '';
     document.getElementById('tSalary').value = t.salary || '0';
     if (document.getElementById('tBankName')) document.getElementById('tBankName').value = t.bankName || '';

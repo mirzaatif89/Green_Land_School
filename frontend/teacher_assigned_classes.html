@@ -39,7 +39,7 @@
 
         .assignment-table {
             width: 100%;
-            min-width: 720px;
+            min-width: 820px;
             border-collapse: collapse;
         }
 
@@ -83,7 +83,7 @@
             <header class="header">
                 <div>
                     <h1>Assigned Classes</h1>
-                    <p style="color: var(--text-secondary); margin-top: 0.3rem;">Assign a teacher as class incharge.</p>
+                    <p style="color: var(--text-secondary); margin-top: 0.3rem;">Assign a teacher as class incharge for a specific section.</p>
                 </div>
             </header>
 
@@ -102,6 +102,12 @@
                         <div>
                             <label for="classAssignmentClass">Class</label>
                             <select id="classAssignmentClass" required></select>
+                        </div>
+                        <div>
+                            <label for="classAssignmentSection">Section</label>
+                            <select id="classAssignmentSection" required disabled>
+                                <option value="">Select Class First</option>
+                            </select>
                         </div>
                         <div>
                             <label for="classAssignmentCampus">Campus</label>
@@ -156,28 +162,90 @@
             }[char]));
         }
 
-        function collectClassNames() {
-            const classes = assignmentData('eduCore_classes');
-            const students = assignmentData('eduCore_students');
-            return [...new Set([
-                ...DEFAULT_ASSIGNMENT_CLASSES,
-                ...classes.map((item) => item?.section ? `${item.name} (${item.section})` : item?.name),
-                ...students.map((student) => student?.classGrade)
-            ].map((value) => String(value || '').trim()).filter(Boolean))]
-                .sort(typeof compareStudentClassNames === 'function'
-                    ? compareStudentClassNames
-                    : ((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })));
+        function splitAssignmentClassSection(classGrade = '', section = '') {
+            const suppliedSection = String(section || '').trim();
+            const rawClass = String(classGrade || '').trim();
+            const combinedMatch = rawClass.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+            return {
+                classGrade: String(combinedMatch ? combinedMatch[1] : rawClass).trim(),
+                section: suppliedSection || String(combinedMatch?.[2] || '').trim()
+            };
         }
 
-        function populateClassAssignmentOptions() {
+        function formatAssignmentClassSection(classGrade = '', section = '') {
+            const normalized = splitAssignmentClassSection(classGrade, section);
+            if (!normalized.classGrade) return '-';
+            return normalized.section && normalized.section.toLowerCase() !== 'general'
+                ? `${normalized.classGrade} - Section ${normalized.section}`
+                : `${normalized.classGrade} - General`;
+        }
+
+        function collectClassSectionCatalog() {
+            const classes = assignmentData('eduCore_classes');
+            const students = assignmentData('eduCore_students');
+            const assignments = assignmentData(CLASS_ASSIGNMENT_KEY);
+            const catalog = new Map();
+            const addPair = (classGrade, section = '') => {
+                const normalized = splitAssignmentClassSection(classGrade, section);
+                if (!normalized.classGrade) return;
+                const key = normalized.classGrade.toLowerCase();
+                if (!catalog.has(key)) catalog.set(key, { name: normalized.classGrade, sections: new Map() });
+                if (normalized.section) catalog.get(key).sections.set(normalized.section.toLowerCase(), normalized.section);
+            };
+
+            DEFAULT_ASSIGNMENT_CLASSES.forEach((classGrade) => addPair(classGrade));
+            classes.forEach((item) => addPair(item?.name || item?.classGrade, item?.section));
+            students.forEach((student) => addPair(student?.classGrade, student?.section));
+            assignments.forEach((assignment) => addPair(assignment?.classGrade, assignment?.section));
+
+            return [...catalog.values()]
+                .map((item) => ({
+                    name: item.name,
+                    sections: [...item.sections.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+                }))
+                .sort((a, b) => typeof compareStudentClassNames === 'function'
+                    ? compareStudentClassNames(a.name, b.name)
+                    : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        }
+
+        function populateClassAssignmentSectionOptions(selectedSection = '') {
+            const classGrade = splitAssignmentClassSection(classAssignmentClass.value).classGrade;
+            if (!classGrade) {
+                classAssignmentSection.disabled = true;
+                classAssignmentSection.innerHTML = '<option value="">Select Class First</option>';
+                return;
+            }
+
+            const sections = collectClassSectionCatalog()
+                .find((item) => item.name.toLowerCase() === classGrade.toLowerCase())?.sections || [];
+            const availableSections = sections.length ? [...sections] : ['General'];
+            const selected = String(selectedSection || '').trim();
+            if (selected && !availableSections.some((section) => section.toLowerCase() === selected.toLowerCase())) {
+                availableSections.push(selected);
+            }
+            classAssignmentSection.disabled = false;
+            classAssignmentSection.innerHTML = availableSections.map((section) => (
+                `<option value="${escapeAssignmentText(section)}">${escapeAssignmentText(section)}</option>`
+            )).join('');
+            classAssignmentSection.value = selected || availableSections[0] || '';
+        }
+
+        function populateClassAssignmentOptions(selectedClass = '', selectedSection = '') {
             const teachers = assignmentData('eduCore_teachers');
-            const classes = collectClassNames();
+            const classes = collectClassSectionCatalog();
+            const normalizedClass = splitAssignmentClassSection(selectedClass, selectedSection).classGrade;
             classAssignmentTeacher.innerHTML = '<option value="">Select Teacher</option>' + teachers.map((teacher) => (
                 `<option value="${escapeAssignmentText(teacher.id)}">${escapeAssignmentText(teacher.fullName || 'Teacher')}${teacher.subject ? ` - ${escapeAssignmentText(teacher.subject)}` : ''}</option>`
             )).join('');
-            classAssignmentClass.innerHTML = '<option value="">Select Class</option>' + classes.map((className) => (
-                `<option value="${escapeAssignmentText(className)}">${escapeAssignmentText(className)}</option>`
+            classAssignmentClass.innerHTML = '<option value="">Select Class</option>' + classes.map((item) => (
+                `<option value="${escapeAssignmentText(item.name)}">${escapeAssignmentText(item.name)}</option>`
             )).join('');
+            classAssignmentClass.value = normalizedClass;
+            if (normalizedClass && classAssignmentClass.value !== normalizedClass) {
+                classAssignmentClass.insertAdjacentHTML('beforeend', `<option value="${escapeAssignmentText(normalizedClass)}">${escapeAssignmentText(normalizedClass)}</option>`);
+                classAssignmentClass.value = normalizedClass;
+            }
+            populateClassAssignmentSectionOptions(selectedSection || splitAssignmentClassSection(selectedClass).section);
         }
 
         function assignmentTeacherName(teacherId) {
@@ -187,7 +255,7 @@
         function renderClassAssignments() {
             const list = document.getElementById('classAssignmentList');
             const assignments = assignmentData(CLASS_ASSIGNMENT_KEY)
-                .sort((a, b) => `${a.classGrade || ''}${a.teacherName || ''}`.localeCompare(`${b.classGrade || ''}${b.teacherName || ''}`));
+                .sort((a, b) => `${a.classGrade || ''}${a.section || ''}${a.teacherName || ''}`.localeCompare(`${b.classGrade || ''}${b.section || ''}${b.teacherName || ''}`));
             if (!assignments.length) {
                 list.innerHTML = '<div class="empty-note">No class incharge assignment has been added yet.</div>';
                 return;
@@ -195,11 +263,12 @@
 
             list.innerHTML = `
                 <table class="assignment-table">
-                    <thead><tr><th>Class</th><th>Class Incharge</th><th>Campus</th><th>Note</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Class</th><th>Section</th><th>Class Incharge</th><th>Campus</th><th>Note</th><th>Action</th></tr></thead>
                     <tbody>
                         ${assignments.map((assignment) => `
                             <tr>
-                                <td>${escapeAssignmentText(assignment.classGrade || '-')}</td>
+                                <td>${escapeAssignmentText(splitAssignmentClassSection(assignment.classGrade, assignment.section).classGrade || '-')}</td>
+                                <td>${escapeAssignmentText(splitAssignmentClassSection(assignment.classGrade, assignment.section).section || 'General')}</td>
                                 <td>${escapeAssignmentText(assignment.teacherName || assignmentTeacherName(assignment.teacherId))}</td>
                                 <td>${escapeAssignmentText(assignment.campusName || 'Main Campus')}</td>
                                 <td>${escapeAssignmentText(assignment.note || '-')}</td>
@@ -220,6 +289,7 @@
         function resetClassAssignmentForm() {
             classAssignmentForm.reset();
             classAssignmentEditId.value = '';
+            populateClassAssignmentOptions();
             saveClassAssignmentBtn.innerHTML = '<i data-lucide="save"></i> Save Assignment';
             if (window.lucide) window.lucide.createIcons();
         }
@@ -227,9 +297,11 @@
         function editClassAssignment(id) {
             const assignment = assignmentData(CLASS_ASSIGNMENT_KEY).find((item) => String(item.id) === String(id));
             if (!assignment) return;
+            const normalized = splitAssignmentClassSection(assignment.classGrade, assignment.section);
             classAssignmentEditId.value = assignment.id;
             classAssignmentTeacher.value = assignment.teacherId || '';
-            classAssignmentClass.value = assignment.classGrade || '';
+            populateClassAssignmentOptions(normalized.classGrade, normalized.section);
+            classAssignmentTeacher.value = assignment.teacherId || '';
             classAssignmentCampus.value = assignment.campusName || '';
             classAssignmentNote.value = assignment.note || '';
             saveClassAssignmentBtn.innerHTML = '<i data-lucide="save"></i> Update Assignment';
@@ -247,8 +319,9 @@
             const teachers = assignmentData('eduCore_teachers');
             const teacher = teachers.find((item) => String(item.id) === String(classAssignmentTeacher.value));
             const classGrade = classAssignmentClass.value;
-            if (!teacher || !classGrade) {
-                showAppAlert('Select a teacher and class first.', 'Missing Assignment');
+            const section = classAssignmentSection.value;
+            if (!teacher || !classGrade || !section) {
+                showAppAlert('Select a teacher, class, and section first.', 'Missing Assignment');
                 return;
             }
 
@@ -259,11 +332,17 @@
                 teacherId: teacher.id,
                 teacherName: teacher.fullName || 'Teacher',
                 classGrade,
+                section,
                 campusName: classAssignmentCampus.value.trim() || teacher.campusName || 'Main Campus',
                 note: classAssignmentNote.value.trim(),
                 updatedAt: new Date().toISOString()
             };
-            const duplicateIndex = assignments.findIndex((item) => String(item.classGrade || '').toLowerCase() === classGrade.toLowerCase() && String(item.id) !== String(editId));
+            const duplicateIndex = assignments.findIndex((item) => {
+                const existing = splitAssignmentClassSection(item.classGrade, item.section);
+                return existing.classGrade.toLowerCase() === classGrade.toLowerCase() &&
+                    String(existing.section || 'General').toLowerCase() === String(section || 'General').toLowerCase() &&
+                    String(item.id) !== String(editId);
+            });
             if (duplicateIndex >= 0) {
                 assignments[duplicateIndex] = { ...assignments[duplicateIndex], ...assignment, id: assignments[duplicateIndex].id };
             } else {
@@ -274,10 +353,11 @@
             saveAssignments(assignments);
             resetClassAssignmentForm();
             renderClassAssignments();
-            showSuccessModal('Class Assigned!', `${assignment.teacherName} is assigned as class incharge for ${assignment.classGrade}.`);
+            showSuccessModal('Class Assigned!', `${assignment.teacherName} is assigned as class incharge for ${formatAssignmentClassSection(assignment.classGrade, assignment.section)}.`);
         });
 
         populateClassAssignmentOptions();
+        classAssignmentClass.addEventListener('change', () => populateClassAssignmentSectionOptions());
         renderClassAssignments();
         if (window.lucide) window.lucide.createIcons();
     </script>

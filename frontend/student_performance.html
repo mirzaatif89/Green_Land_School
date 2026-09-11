@@ -84,7 +84,7 @@
     <main class="main-content">
         <a class="back-link" href="student_scheduling.html"><i data-lucide="arrow-left" width="18"></i> Back to Student Scheduling</a>
         <header class="header"><div><h1>Student Performance</h1><p style="color:var(--text-secondary);margin-top:.3rem">Select a student, choose a subject, then add skill-wise performance.</p></div></header>
-        <div class="performance-steps"><div class="performance-step active" id="stepClass">1. Select Class<select class="step-select" id="classStepSelect"><option value="">Select Class</option></select></div><div class="performance-step" id="stepStudent">2. Select Student<select class="step-select" id="studentStepSelect" disabled><option value="">Select Student</option></select></div><div class="performance-step" id="stepSubjects">3. Select Subject<select class="step-select" id="subjectStepSelect" disabled><option value="">Select Subject</option></select></div><div class="performance-step" id="stepSkills">4. Add Performance</div></div>
+        <div class="performance-steps"><div class="performance-step active" id="stepClass">1. Select Class<select class="step-select" id="classStepSelect"><option value="">Select Class</option></select><select class="step-select" id="sectionStepSelect" disabled><option value="">Select Section</option></select></div><div class="performance-step" id="stepStudent">2. Select Student<select class="step-select" id="studentStepSelect" disabled><option value="">Select Student</option></select></div><div class="performance-step" id="stepSubjects">3. Select Subject<select class="step-select" id="subjectStepSelect" disabled><option value="">Select Subject</option></select></div><div class="performance-step" id="stepSkills">4. Add Performance</div></div>
         <section class="performance-layout">
             <div class="performance-panel"><h2 id="choiceTitle">Select Class</h2><select class="class-select" id="choiceList"><option value="">Loading classes...</option></select></div>
             <div class="performance-panel" id="workspace"><div class="empty-state"><i data-lucide="school" width="32"></i><p>Select a class to view its students.</p></div></div>
@@ -93,6 +93,7 @@
 </div>
 <script src="auth.js?v=20260814-live-auth-fix1"></script>
 <script src="script.js?v=20260902-co-curriculum-save"></script>
+<script src="student_schedule_sections.js"></script>
 <script>
 (() => {
     const apiBase = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : `${location.origin}/api`;
@@ -126,7 +127,9 @@
     const performanceMode = new URLSearchParams(location.search).get('section') || location.hash.replace(/^#/, '').trim();
     let students = [];
     let courses = [];
+    let scheduledSubjects = [];
     let selectedClass = '';
+    let selectedStudentSection = '';
     let selectedStudent = null;
     let selectedSubject = '';
     let selectedSection = 'Portfolio Skills Assessment Summary';
@@ -137,6 +140,7 @@
     const choiceTitle = document.getElementById('choiceTitle');
     const choiceList = document.getElementById('choiceList');
     const classStepSelect = document.getElementById('classStepSelect');
+    const sectionStepSelect = document.getElementById('sectionStepSelect');
     const studentStepSelect = document.getElementById('studentStepSelect');
     const subjectStepSelect = document.getElementById('subjectStepSelect');
     const workspace = document.getElementById('workspace');
@@ -203,12 +207,18 @@
         const assignedToStudent = Array.isArray(selectedStudent?.subjects)
             ? selectedStudent.subjects
             : String(selectedStudent?.subjects || '').split(/[,|]/).map(value => value.trim()).filter(Boolean);
+        const classSectionMatches = item => norm(item.classGrade) === norm(selectedClass)
+            && (!String(item.section || '').trim() || norm(item.section) === norm(selectedStudentSection));
+        const scheduledTitles = [
+            ...courses.filter(classSectionMatches).map(c => String(c.title || c.subject || '').trim()),
+            ...scheduledSubjects.filter(classSectionMatches).map(item => String(item.subject || item.title || '').trim())
+        ].filter(Boolean);
         const titles = [
-            ...courses.filter(c => norm(c.classGrade) === norm(selectedClass)).map(c => String(c.title || c.subject || '').trim()),
+            ...scheduledTitles,
             ...saved.map(record => String(record.subject || '').trim())
         ].filter(value => value && !excludedReportSubjects.has(norm(value)));
         const fixedSubjects = ['Play Group','Nursarry','Prep'].some(name => norm(name) === norm(selectedClass)) ? juniorSubjects : seniorSubjects;
-        const baseSubjects = [...new Map([...fixedSubjects, ...assignedToStudent, ...titles].map(value => [norm(value), value])).values()];
+        const baseSubjects = [...new Map([...(scheduledTitles.length ? [] : fixedSubjects), ...assignedToStudent, ...titles].map(value => [norm(value), value])).values()];
         if (Array.isArray(teacherAssignedSubjects)) {
             return baseSubjects.filter(subject => teacherAssignedSubjects.some(assigned => norm(assigned) === norm(subject)));
         }
@@ -222,24 +232,31 @@
         choiceList.onchange = () => choiceList.value && selectClass(choiceList.value);
         classStepSelect.innerHTML = '<option value="">Select Class</option>' + classNames().map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
         classStepSelect.value = selectedClass;
-        classStepSelect.onchange = () => classStepSelect.value && selectClass(classStepSelect.value);
+        classStepSelect.onchange = () => classStepSelect.value && selectClass(classStepSelect.value, '');
+        const sectionOptions = [...new Set(students.filter(student => norm(student.classGrade) === norm(selectedClass)).map(student => String(student.section || 'General').trim()).filter(Boolean))].sort();
+        sectionStepSelect.disabled = !selectedClass || !sectionOptions.length;
+        sectionStepSelect.innerHTML = '<option value="">Select Section</option>' + sectionOptions.map(section => `<option value="${esc(section)}">${esc(section)}</option>`).join('');
+        sectionStepSelect.value = selectedStudentSection;
+        sectionStepSelect.onchange = () => sectionStepSelect.value && selectClass(selectedClass, sectionStepSelect.value);
     }
 
-    function selectClass(name) {
+    function selectClass(name, section = '') {
         selectedClass = name;
+        const availableSections = [...new Set(students.filter(student => norm(student.classGrade) === norm(name)).map(student => String(student.section || 'General').trim()).filter(Boolean))];
+        selectedStudentSection = section || availableSections[0] || '';
         selectedStudent = null;
         selectedSubject = '';
         saved = [];
         setSteps(2);
         renderClasses();
-        const list = students.filter(student => norm(student.classGrade) === norm(name));
+        const list = students.filter(student => norm(student.classGrade) === norm(name) && norm(student.section || 'General') === norm(selectedStudentSection || 'General'));
         studentStepSelect.disabled = !list.length;
         studentStepSelect.innerHTML = '<option value="">Select Student</option>' + list.map(student => `<option value="${esc(student.id)}">${esc(student.fullName || 'Unnamed Student')}</option>`).join('');
         studentStepSelect.value = '';
         subjectStepSelect.disabled = true;
         subjectStepSelect.innerHTML = '<option value="">Select Subject</option>';
         studentStepSelect.onchange = () => studentStepSelect.value && selectStudent(studentStepSelect.value);
-        workspace.innerHTML = `<div class="empty-state">${list.length ? 'Select a student from the Student dropdown above.' : 'No students found in this class.'}</div>`;
+        workspace.innerHTML = `<div class="empty-state">${list.length ? 'Select a student from the Student dropdown above.' : 'No students found in this class section.'}</div>`;
     }
 
     async function selectStudent(id) {
@@ -312,7 +329,7 @@
         const date = today();
         const records = items.flatMap(item => [...workspace.querySelectorAll(`input[name="co-${item}"]:checked`)].map(input => {
             const rating = input.value;
-            const record = { studentId:String(selectedStudent.id), studentName:selectedStudent.fullName || '', classGrade:selectedClass, subject:'Co-Curriculum', assessmentSection:'Co-Curriculum', assessmentItem:item, assessmentRating:rating, skill:`${item}__${rating}`, learningOutcome:rating, excellentDescription:rating === 'Advance' ? 'Advance' : '', satisfactoryDescription:rating === 'Proficient' ? 'Proficient' : '', needsPracticeDescription:['Developing','Below 50% Beginning'].includes(rating) ? rating : '', rating:rating === 'Advance' ? 'Excellent' : rating === 'Proficient' ? 'Satisfactory' : 'Needs Practice', grade:rating, performanceDate:date, performanceMonth:date.slice(0,7), percentage:0, remarks:'' };
+            const record = { studentId:String(selectedStudent.id), studentName:selectedStudent.fullName || '', classGrade:selectedClass, section:selectedStudentSection, subject:'Co-Curriculum', assessmentSection:'Co-Curriculum', assessmentItem:item, assessmentRating:rating, skill:`${item}__${rating}`, learningOutcome:rating, excellentDescription:rating === 'Advance' ? 'Advance' : '', satisfactoryDescription:rating === 'Proficient' ? 'Proficient' : '', needsPracticeDescription:['Developing','Below 50% Beginning'].includes(rating) ? rating : '', rating:rating === 'Advance' ? 'Excellent' : rating === 'Proficient' ? 'Satisfactory' : 'Needs Practice', grade:rating, performanceDate:date, performanceMonth:date.slice(0,7), percentage:0, remarks:'' };
             record.id = performanceIdFor(record);
             return record;
         }));
@@ -345,7 +362,7 @@
         const date = today();
         const records = items.flatMap(item => [...workspace.querySelectorAll(`input[name="part-${item}"]:checked`)].map(input => {
             const rating = input.value;
-            const record = { studentId:String(selectedStudent.id), studentName:selectedStudent.fullName || '', classGrade:selectedClass, subject:'Participation', assessmentSection:'Participation', assessmentItem:item, assessmentRating:rating, skill:`${item}__${rating}`, learningOutcome:rating, excellentDescription:rating === 'Advance' ? 'Advance' : '', satisfactoryDescription:rating === 'Proficient' ? 'Proficient' : '', needsPracticeDescription:['Developing','Below 50% Beginning'].includes(rating) ? rating : '', rating:rating === 'Advance' ? 'Excellent' : rating === 'Proficient' ? 'Satisfactory' : 'Needs Practice', grade:rating, performanceDate:date, performanceMonth:date.slice(0,7), percentage:0, remarks:'' };
+            const record = { studentId:String(selectedStudent.id), studentName:selectedStudent.fullName || '', classGrade:selectedClass, section:selectedStudentSection, subject:'Participation', assessmentSection:'Participation', assessmentItem:item, assessmentRating:rating, skill:`${item}__${rating}`, learningOutcome:rating, excellentDescription:rating === 'Advance' ? 'Advance' : '', satisfactoryDescription:rating === 'Proficient' ? 'Proficient' : '', needsPracticeDescription:['Developing','Below 50% Beginning'].includes(rating) ? rating : '', rating:rating === 'Advance' ? 'Excellent' : rating === 'Proficient' ? 'Satisfactory' : 'Needs Practice', grade:rating, performanceDate:date, performanceMonth:date.slice(0,7), percentage:0, remarks:'' };
             record.id = performanceIdFor(record);
             return record;
         }));
@@ -480,6 +497,7 @@
             studentId: String(selectedStudent.id),
             studentName: selectedStudent.fullName || '',
             classGrade: selectedClass,
+            section: selectedStudentSection,
             subject: selectedSubject,
             assessmentSection: 'Portfolio Skills Assessment Summary',
             assessmentItem: document.getElementById('modalSkill').value.trim(),
@@ -641,7 +659,8 @@
             }
             const studentResponse = await fetch(`${apiBase}/students`, { cache:'no-store' });
             const studentData = await studentResponse.json().catch(() => ({}));
-            courses = [];
+            courses = JSON.parse(localStorage.getItem('eduCore_student_courses') || '[]');
+            scheduledSubjects = JSON.parse(localStorage.getItem('eduCore_student_schedules') || '[]');
             attendanceStore = {};
             examResults = [];
             if (!studentResponse.ok) {

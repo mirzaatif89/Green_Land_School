@@ -13,6 +13,7 @@ module.exports = createHandler({
             session,
             amount,
             fullAmount,
+            paymentDate,
             challanNumber
         } = body || {};
 
@@ -60,7 +61,9 @@ module.exports = createHandler({
 
         const existingPayment = await FeePayment.findByPk(safeChallanNumber);
         const alreadyRecorded = existingPayment && ['Paid', 'Partial'].includes(String(existingPayment.status || ''));
-        const paidAt = existingPayment?.paidAt || new Date();
+        const requestedPaymentDate = String(paymentDate || '').trim();
+        const parsedPaymentDate = requestedPaymentDate ? new Date(`${requestedPaymentDate}T12:00:00`) : null;
+        const paidAt = existingPayment?.paidAt || (parsedPaymentDate && !Number.isNaN(parsedPaymentDate.getTime()) ? parsedPaymentDate : new Date());
         const paymentDateLabel = new Date(paidAt).toLocaleDateString('en-GB');
 
         const newPaymentRow = {

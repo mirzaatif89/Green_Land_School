@@ -1446,6 +1446,7 @@
             </div>
             <div class="student-manager-toolbar">
                 <select id="studentManagerClass" class="student-manager-filter" aria-label="Filter assigned class"><option value="">All assigned classes</option></select>
+                <select id="studentManagerSection" class="student-manager-filter" aria-label="Filter assigned section"><option value="">All assigned sections</option></select>
                 <input id="studentManagerSearch" class="student-manager-filter" type="search" placeholder="Search student name or ID" aria-label="Search students">
             </div>
             <div class="student-manager-grid" id="teacherStudentManagerList"><div class="empty-note">Loading assigned students...</div></div>
@@ -1635,18 +1636,91 @@
             return normalizeSchedule(currentTeacherProfile?.schedule);
         }
 
+        function getTeacherPortalClassSection(record = {}) {
+            const rawClass = String(record.classGrade || record.className || record.class || '').trim();
+            const suppliedSection = String(record.section || '').trim();
+            const combinedMatch = rawClass.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+            return {
+                className: String(combinedMatch ? combinedMatch[1] : rawClass).trim(),
+                section: suppliedSection || String(combinedMatch?.[2] || '').trim()
+            };
+        }
+
+        function formatTeacherPortalClassSection(record = {}) {
+            const normalized = getTeacherPortalClassSection(record);
+            if (!normalized.className) return '-';
+            return normalized.section && normalized.section.toLowerCase() !== 'general'
+                ? `${normalized.className} - Section ${normalized.section}`
+                : `${normalized.className} - General`;
+        }
+
+        function getTeacherPortalDirectAssignments() {
+            let values = currentTeacherProfile?.assignedSections || [];
+            if (typeof values === 'string') {
+                try { values = JSON.parse(values); } catch (_error) { values = values.split(/[;,\n]/); }
+            }
+            if (!Array.isArray(values)) values = values ? [values] : [];
+            return values.map((value) => {
+                if (value && typeof value === 'object') return value;
+                const text = String(value || '').trim();
+                const separatorIndex = text.indexOf('||');
+                if (separatorIndex >= 0) {
+                    return { classGrade: text.slice(0, separatorIndex), section: text.slice(separatorIndex + 2) };
+                }
+                return { classGrade: text };
+            }).filter((item) => getTeacherPortalClassSection(item).className);
+        }
+
+        function getTeacherPortalAssignmentRecords() {
+            return [...getSchedule(), ...teacherAssignedClassRecords, ...getTeacherPortalDirectAssignments()];
+        }
+
+        function normalizeTeacherPortalCampus(value = '') {
+            return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+
+        function getTeacherPortalUniqueAssignments() {
+            const assignments = new Map();
+            getTeacherPortalAssignmentRecords().forEach((record) => {
+                const normalized = getTeacherPortalClassSection(record);
+                if (!normalized.className) return;
+                const key = `${normalized.className.toLowerCase()}|${normalized.section.toLowerCase()}`;
+                if (!assignments.has(key)) assignments.set(key, { ...record, ...normalized });
+            });
+            return Array.from(assignments.values());
+        }
+
+        function getTeacherPortalStudentClassSection(student = {}) {
+            return getTeacherPortalClassSection({
+                classGrade: student.classGrade || student.className || student.class || student.grade || '',
+                section: student.section || student.classSection || ''
+            });
+        }
+
+        function isTeacherPortalStudentAssigned(student = {}, assignment = {}) {
+            const studentClass = getTeacherPortalStudentClassSection(student);
+            const assignedClass = getTeacherPortalClassSection(assignment);
+            if (!studentClass.className || studentClass.className !== assignedClass.className) return false;
+
+            const assignedSection = assignedClass.section;
+            // Old assignments did not carry a section, so they intentionally retain access to the whole class.
+            if (assignedSection && assignedSection !== 'general' && studentClass.section !== assignedSection) return false;
+
+            const studentCampus = normalizeTeacherPortalCampus(student.campusName || student.branchName || '');
+            const assignmentCampus = normalizeTeacherPortalCampus(assignment.campusName || assignment.branchName || assignment.campus || '');
+            const teacherCampus = normalizeTeacherPortalCampus(currentTeacherProfile?.campusName || currentTeacherProfile?.branchName || loggedInUser?.campusName || '');
+            if (assignmentCampus && studentCampus && assignmentCampus !== studentCampus) return false;
+            if (!assignmentCampus && teacherCampus && studentCampus && teacherCampus !== studentCampus) return false;
+
+            return true;
+        }
+
         function uniqueClasses(schedule = getSchedule()) {
             const classes = new Map();
-            schedule.forEach((item) => {
+            [...schedule, ...teacherAssignedClassRecords, ...getTeacherPortalDirectAssignments()].forEach((item) => {
                 const className = item.classGrade || item.className || item.class || '';
                 if (!className) return;
                 const key = className.toLowerCase();
-                if (!classes.has(key)) classes.set(key, className);
-            });
-            teacherAssignedClassRecords.forEach((item) => {
-                const className = item.classGrade || item.className || item.class || '';
-                if (!className) return;
-                const key = String(className).toLowerCase();
                 if (!classes.has(key)) classes.set(key, className);
             });
             return Array.from(classes.values());
@@ -1835,12 +1909,13 @@
             host.innerHTML = `
                 <div class="portal-table-wrap">
                     <table class="portal-table">
-                        <thead><tr><th>Day</th><th>Class</th><th>Subject</th><th>Time</th><th>Room</th></tr></thead>
+                        <thead><tr><th>Day</th><th>Class</th><th>Section</th><th>Subject</th><th>Time</th><th>Room</th></tr></thead>
                         <tbody>
                             ${schedule.map((item) => `
                                 <tr>
                                     <td>${escapeHtml(item.day || item.weekDay || '-')}</td>
-                                    <td>${escapeHtml(item.classGrade || item.className || item.class || '-')}</td>
+                                    <td>${escapeHtml(getTeacherPortalClassSection(item).className || '-')}</td>
+                                    <td>${escapeHtml(getTeacherPortalClassSection(item).section || 'General')}</td>
                                     <td>${escapeHtml(item.subject || '-')}</td>
                                     <td>${escapeHtml([item.startTime || item.start, item.endTime || item.end].filter(Boolean).join(' - ') || item.time || '-')}</td>
                                     <td>${escapeHtml(item.room || '-')}</td>
@@ -1927,10 +2002,16 @@
         }
 
         function renderAssignedClasses() {
-            const classes = uniqueClasses();
-            renderPortalList('teacherAssignedClasses', classes, 'No classes have been assigned yet.', (className) => `
+            const classes = getTeacherPortalAssignmentRecords()
+                .map((item) => getTeacherPortalClassSection(item))
+                .filter((item) => item.className);
+            const uniqueAssignments = [...new Map(classes.map((item) => [
+                `${item.className.toLowerCase()}|${item.section.toLowerCase()}`,
+                item
+            ])).values()];
+            renderPortalList('teacherAssignedClasses', uniqueAssignments, 'No classes have been assigned yet.', (item) => `
                 <div class="list-item">
-                    <div class="list-item-top"><span>${escapeHtml(className)}</span><span>Assigned</span></div>
+                    <div class="list-item-top"><span>${escapeHtml(item.className)}</span><span>${escapeHtml(item.section && item.section.toLowerCase() !== 'general' ? `Section ${item.section}` : 'General')}</span></div>
                 </div>
             `);
         }
@@ -1943,7 +2024,7 @@
                         <span>${escapeHtml(item.subject || 'Lecture')}</span>
                         <span>${escapeHtml([item.startTime || item.start, item.endTime || item.end].filter(Boolean).join(' - ') || item.time || '-')}</span>
                     </div>
-                    <div class="muted">${escapeHtml(item.day || item.weekDay || '-')} | ${escapeHtml(item.classGrade || item.className || item.class || '-')} | ${escapeHtml(item.room || '-')}</div>
+                    <div class="muted">${escapeHtml(item.day || item.weekDay || '-')} | ${escapeHtml(formatTeacherPortalClassSection(item))} | ${escapeHtml(item.room || '-')}</div>
                 </div>
             `);
         }
@@ -2008,7 +2089,7 @@
 
             list.innerHTML = schedule.map((item) => {
                 const day = item.day || item.weekDay || 'Lecture';
-                const className = item.classGrade || item.className || item.class || '-';
+                const className = formatTeacherPortalClassSection(item);
                 const subject = item.subject || '-';
                 const time = [item.startTime || item.start, item.endTime || item.end].filter(Boolean).join(' - ') || item.time || '-';
                 return `

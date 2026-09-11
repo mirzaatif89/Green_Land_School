@@ -10,7 +10,7 @@ const {
 
 const teacherAttributes = [
     'id', 'employeeCode', 'fullName', 'profileImage', 'fatherName', 'dob', 'cnic', 'phone',
-    'email', 'address', 'qualification', 'campusName', 'gender', 'designation', 'subject', 'salary',
+    'email', 'address', 'qualification', 'campusName', 'gender', 'designation', 'subject', 'assignedSections', 'salary',
     'idCardFront', 'idCardBack', 'cvFile', 'bankName', 'bankAccountTitle',
     'bankAccountNumber', 'bankBranch', 'schedule', 'username', 'password', 'plainPassword', 'role', 'groupKey'
 ];

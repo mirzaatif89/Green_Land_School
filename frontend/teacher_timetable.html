@@ -65,7 +65,7 @@
         .schedule-table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 760px;
+            min-width: 860px;
         }
 
         .schedule-table th,
@@ -122,6 +122,32 @@
             overflow-x: auto;
         }
 
+        .schedule-filter-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(170px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .schedule-filter-grid label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .schedule-filter-grid select {
+            width: 100%;
+            height: 38px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #fff;
+            color: var(--text-primary);
+            padding: 0 0.7rem;
+            font: inherit;
+        }
+
         @media (max-width: 1100px) {
             .schedule-grid {
                 grid-template-columns: repeat(2, minmax(170px, 1fr));
@@ -130,6 +156,10 @@
 
         @media (max-width: 640px) {
             .schedule-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .schedule-filter-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -167,7 +197,7 @@
             <header class="header">
                 <div>
                     <h1 id="teacherScheduleHeading">Teacher Scheduling</h1>
-                    <p id="teacherScheduleDescription" style="color: var(--text-secondary); margin-top: 0.3rem;">Assign each teacher lecture, class, day, and time.</p>
+                    <p id="teacherScheduleDescription" style="color: var(--text-secondary); margin-top: 0.3rem;">Assign each teacher lecture by class, section, day, and time.</p>
                 </div>
             </header>
 
@@ -181,7 +211,13 @@
                         </div>
                         <div class="input-group">
                             <label>Class</label>
-                            <select id="teacherScheduleClass" required></select>
+                            <select id="teacherScheduleClass" required onchange="populateTeacherTimetableSectionOptions()"></select>
+                        </div>
+                        <div class="input-group">
+                            <label>Section</label>
+                            <select id="teacherScheduleSection" required disabled>
+                                <option value="">Select Class First</option>
+                            </select>
                         </div>
                         <div class="input-group">
                             <label>Day</label>
@@ -226,6 +262,20 @@
 
             <section class="schedule-panel">
                 <h3 style="margin-bottom:1rem;">Teacher Timetable</h3>
+                <div class="schedule-filter-grid">
+                    <div>
+                        <label for="teacherTimetableFilterTeacher">Teacher</label>
+                        <select id="teacherTimetableFilterTeacher"></select>
+                    </div>
+                    <div>
+                        <label for="teacherTimetableFilterClass">Class</label>
+                        <select id="teacherTimetableFilterClass"></select>
+                    </div>
+                    <div>
+                        <label for="teacherTimetableFilterSection">Section</label>
+                        <select id="teacherTimetableFilterSection"></select>
+                    </div>
+                </div>
                 <div id="teacherSchedulePageList"></div>
             </section>
         </main>
@@ -255,8 +305,8 @@
             const assignedLectureMode = window.location.hash === '#assigned-lectures';
             document.getElementById('teacherScheduleHeading').textContent = assignedLectureMode ? 'Assigned Lectures' : 'Teacher Scheduling';
             document.getElementById('teacherScheduleDescription').textContent = assignedLectureMode
-                ? 'Assign an additional lecture to a teacher by class, day, subject, and time.'
-                : 'Assign each teacher lecture, class, day, and time.';
+                ? 'Assign an additional lecture to a teacher by class, section, day, subject, and time.'
+                : 'Assign each teacher lecture by class, section, day, and time.';
         }
 
         function parseSchedule(rawSchedule) {
@@ -270,19 +320,153 @@
             }
         }
 
-        function populateTeacherSchedulingOptions() {
+        const DEFAULT_TIMETABLE_CLASSES = [
+            'Play Group', 'Nursarry', 'Prep',
+            'Class One', 'Class Two', 'Class Three', 'Class Four', 'Class Five',
+            'Class Six', 'Class Seven', 'Class Eight', 'Class Nine', 'Class 10'
+        ];
+
+        function escapeTimetableText(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[character]));
+        }
+
+        function splitTimetableClassSection(classGrade = '', section = '') {
+            const suppliedSection = String(section || '').trim();
+            const rawClass = String(classGrade || '').trim();
+            const combinedMatch = rawClass.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+            return {
+                classGrade: String(combinedMatch ? combinedMatch[1] : rawClass).trim(),
+                section: suppliedSection || String(combinedMatch?.[2] || '').trim()
+            };
+        }
+
+        function formatTimetableClassSection(classGrade = '', section = '') {
+            const normalized = splitTimetableClassSection(classGrade, section);
+            if (!normalized.classGrade) return '-';
+            return normalized.section && normalized.section.toLowerCase() !== 'general'
+                ? `${normalized.classGrade} - Section ${normalized.section}`
+                : `${normalized.classGrade} - General`;
+        }
+
+        function getTimetableClassSectionCatalog() {
+            const catalog = new Map();
+            const addPair = (classGrade, section = '') => {
+                const normalized = splitTimetableClassSection(classGrade, section);
+                if (!normalized.classGrade) return;
+                const key = normalized.classGrade.toLowerCase();
+                if (!catalog.has(key)) catalog.set(key, { name: normalized.classGrade, sections: new Map() });
+                if (normalized.section) catalog.get(key).sections.set(normalized.section.toLowerCase(), normalized.section);
+            };
+
+            DEFAULT_TIMETABLE_CLASSES.forEach((classGrade) => addPair(classGrade));
+            getScheduleData('eduCore_classes').forEach((item) => addPair(item?.name || item?.classGrade, item?.section));
+            getScheduleData('eduCore_students').forEach((student) => addPair(student?.classGrade, student?.section));
+            getScheduleData('eduCore_teachers').forEach((teacher) => {
+                parseSchedule(teacher?.schedule).forEach((item) => addPair(item?.classGrade || item?.class || item?.className, item?.section));
+            });
+            getScheduleData('eduCore_teacher_class_assignments').forEach((assignment) => {
+                addPair(assignment?.classGrade || assignment?.className, assignment?.section);
+            });
+
+            return [...catalog.values()]
+                .map((item) => ({
+                    name: item.name,
+                    sections: [...item.sections.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+                }))
+                .sort((a, b) => typeof compareStudentClassNames === 'function'
+                    ? compareStudentClassNames(a.name, b.name)
+                    : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        }
+
+        function populateTeacherTimetableSectionOptions(selectedSection = '') {
+            const classSelect = document.getElementById('teacherScheduleClass');
+            const sectionSelect = document.getElementById('teacherScheduleSection');
+            const classGrade = splitTimetableClassSection(classSelect?.value).classGrade;
+            if (!classGrade) {
+                sectionSelect.disabled = true;
+                sectionSelect.innerHTML = '<option value="">Select Class First</option>';
+                return;
+            }
+
+            const sections = getTimetableClassSectionCatalog()
+                .find((item) => item.name.toLowerCase() === classGrade.toLowerCase())?.sections || [];
+            const availableSections = sections.length ? [...sections] : ['General'];
+            const selected = String(selectedSection || '').trim();
+            if (selected && !availableSections.some((section) => section.toLowerCase() === selected.toLowerCase())) {
+                availableSections.push(selected);
+            }
+            sectionSelect.disabled = false;
+            sectionSelect.innerHTML = availableSections.map((section) => (
+                `<option value="${escapeTimetableText(section)}">${escapeTimetableText(section)}</option>`
+            )).join('');
+            sectionSelect.value = selected || availableSections[0] || '';
+        }
+
+        function populateTeacherTimetableFilterSectionOptions(selectedSection = '') {
+            const classFilter = document.getElementById('teacherTimetableFilterClass');
+            const sectionFilter = document.getElementById('teacherTimetableFilterSection');
+            if (!classFilter || !sectionFilter) return;
+
+            const selectedClass = splitTimetableClassSection(classFilter.value).classGrade;
+            const catalog = getTimetableClassSectionCatalog();
+            const selectedClassEntry = catalog.find((item) => item.name.toLowerCase() === selectedClass.toLowerCase());
+            const sections = selectedClass
+                ? (selectedClassEntry?.sections || [])
+                : catalog.flatMap((item) => item.sections);
+            const uniqueSections = [...new Map(sections.map((section) => [section.toLowerCase(), section])).values()]
+                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+            if ((!selectedClass && catalog.some((item) => !item.sections.length)) || (selectedClass && !selectedClassEntry?.sections.length)) {
+                uniqueSections.unshift('General');
+            }
+            const selected = String(selectedSection || '').trim();
+            if (selected && !uniqueSections.some((section) => section.toLowerCase() === selected.toLowerCase())) {
+                uniqueSections.push(selected);
+            }
+            sectionFilter.innerHTML = '<option value="">All Sections</option>' + uniqueSections.map((section) => (
+                `<option value="${escapeTimetableText(section)}">Section ${escapeTimetableText(section)}</option>`
+            )).join('');
+            sectionFilter.value = selected;
+        }
+
+        function populateTeacherTimetableFilters() {
+            const teacherFilter = document.getElementById('teacherTimetableFilterTeacher');
+            const classFilter = document.getElementById('teacherTimetableFilterClass');
+            const sectionFilter = document.getElementById('teacherTimetableFilterSection');
+            if (!teacherFilter || !classFilter || !sectionFilter) return;
+
+            const selectedTeacher = teacherFilter.value;
+            const selectedClass = splitTimetableClassSection(classFilter.value).classGrade;
+            const selectedSection = sectionFilter.value;
+            const teachers = getScheduleData('eduCore_teachers');
+            const classes = getTimetableClassSectionCatalog();
+            teacherFilter.innerHTML = '<option value="">All Teachers</option>' + teachers.map((teacher) => (
+                `<option value="${escapeTimetableText(teacher.id)}">${escapeTimetableText(teacher.fullName || 'Teacher')}</option>`
+            )).join('');
+            classFilter.innerHTML = '<option value="">All Classes</option>' + classes.map((item) => (
+                `<option value="${escapeTimetableText(item.name)}">${escapeTimetableText(item.name)}</option>`
+            )).join('');
+            teacherFilter.value = selectedTeacher;
+            classFilter.value = selectedClass;
+            populateTeacherTimetableFilterSectionOptions(selectedSection);
+        }
+
+        function populateTeacherSchedulingOptions(selectedClass = '', selectedSection = '') {
             const teacherSelect = document.getElementById('teacherScheduleTeacher');
             const classSelect = document.getElementById('teacherScheduleClass');
             const teachers = getScheduleData('eduCore_teachers');
-            const students = getScheduleData('eduCore_students');
-            const classes = getScheduleData('eduCore_classes');
-            const classNames = [...new Set([
-                ...classes.map((item) => item?.section ? `${item.name} (${item.section})` : item?.name),
-                ...students.map((student) => student?.classGrade)
-            ].map((value) => String(value || '').trim()).filter(Boolean))].sort();
+            const classes = getTimetableClassSectionCatalog();
+            const normalizedClass = splitTimetableClassSection(selectedClass, selectedSection).classGrade;
 
-            teacherSelect.innerHTML = '<option value="">Select Teacher</option>' + teachers.map((teacher) => `<option value="${teacher.id}">${teacher.fullName || 'Teacher'}${teacher.subject ? ` - ${teacher.subject}` : ''}</option>`).join('');
-            classSelect.innerHTML = '<option value="">Select Class</option>' + classNames.map((name) => `<option value="${name}">${name}</option>`).join('');
+            teacherSelect.innerHTML = '<option value="">Select Teacher</option>' + teachers.map((teacher) => `<option value="${escapeTimetableText(teacher.id)}">${escapeTimetableText(teacher.fullName || 'Teacher')}${teacher.subject ? ` - ${escapeTimetableText(teacher.subject)}` : ''}</option>`).join('');
+            classSelect.innerHTML = '<option value="">Select Class</option>' + classes.map((item) => `<option value="${escapeTimetableText(item.name)}">${escapeTimetableText(item.name)}</option>`).join('');
+            classSelect.value = normalizedClass;
+            if (normalizedClass && classSelect.value !== normalizedClass) {
+                classSelect.insertAdjacentHTML('beforeend', `<option value="${escapeTimetableText(normalizedClass)}">${escapeTimetableText(normalizedClass)}</option>`);
+                classSelect.value = normalizedClass;
+            }
+            populateTeacherTimetableSectionOptions(selectedSection || splitTimetableClassSection(selectedClass).section);
             const subjectSelect = document.getElementById('teacherScheduleSubject');
             if (subjectSelect) subjectSelect.innerHTML = '<option value="">Select Subject</option>' + ['English', 'Urdu', 'Mathematics', 'Science', 'Social Study', 'Islamiyat', 'Nazra', 'Math'].map((subject) => `<option value="${subject}">${subject}</option>`).join('');
         }
@@ -299,7 +483,17 @@
 
         function renderTeacherSchedules() {
             const list = document.getElementById('teacherSchedulePageList');
+            populateTeacherTimetableFilters();
+            const selectedTeacher = document.getElementById('teacherTimetableFilterTeacher')?.value || '';
+            const selectedClass = splitTimetableClassSection(document.getElementById('teacherTimetableFilterClass')?.value).classGrade.toLowerCase();
+            const selectedSection = String(document.getElementById('teacherTimetableFilterSection')?.value || '').toLowerCase();
             const rows = getAllTeacherScheduleRows()
+                .filter((item) => {
+                    const normalized = splitTimetableClassSection(item.classGrade, item.section);
+                    return (!selectedTeacher || String(item.teacherId) === String(selectedTeacher)) &&
+                        (!selectedClass || normalized.classGrade.toLowerCase() === selectedClass) &&
+                        (!selectedSection || String(normalized.section || 'General').toLowerCase() === selectedSection);
+                })
                 .sort((a, b) => `${a.teacherName}${a.day}${a.startTime}`.localeCompare(`${b.teacherName}${b.day}${b.startTime}`));
             if (!rows.length) {
                 list.innerHTML = '<div class="empty-note">No teacher schedules added yet.</div>';
@@ -309,16 +503,17 @@
             list.innerHTML = `
                 <div class="schedule-table-wrap">
                 <table class="schedule-table">
-                    <thead><tr><th>Teacher</th><th>Class</th><th>Day</th><th>Lecture</th><th>Time</th><th>Room</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Teacher</th><th>Class</th><th>Section</th><th>Day</th><th>Lecture</th><th>Time</th><th>Room</th><th>Action</th></tr></thead>
                     <tbody>
                         ${rows.map((item) => `
                             <tr>
-                                <td>${item.teacherName || '-'}</td>
-                                <td>${item.classGrade || '-'}</td>
-                                <td>${item.day || '-'}</td>
-                                <td>${item.subject || '-'}</td>
-                                <td>${item.startTime || '-'} - ${item.endTime || '-'}</td>
-                                <td>${item.room || '-'}</td>
+                                <td>${escapeTimetableText(item.teacherName || '-')}</td>
+                                <td>${escapeTimetableText(splitTimetableClassSection(item.classGrade, item.section).classGrade || '-')}</td>
+                                <td>${escapeTimetableText(splitTimetableClassSection(item.classGrade, item.section).section || 'General')}</td>
+                                <td>${escapeTimetableText(item.day || '-')}</td>
+                                <td>${escapeTimetableText(item.subject || '-')}</td>
+                                <td>${escapeTimetableText(item.startTime || '-')} - ${escapeTimetableText(item.endTime || '-')}</td>
+                                <td>${escapeTimetableText(item.room || '-')}</td>
                                 <td>
                                     <div class="schedule-actions">
                                         <button class="schedule-action-btn edit" onclick="editTeacherScheduleRow('${item.teacherId}', '${item.id}')"><i data-lucide="edit-2" width="14"></i> Edit</button>
@@ -334,16 +529,23 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
-        function saveTeachers(teachers) {
+        async function saveTeachers(teachers, teacherToSync = null) {
             setScheduleData('eduCore_teachers', teachers);
+            if (typeof syncToSQLDetailed !== 'function') return { success: true };
+            const result = await syncToSQLDetailed('teachers', teacherToSync ? [teacherToSync] : teachers);
+            if (!result.success) {
+                showAppAlert(result.error || 'Schedule saved locally, but database sync failed.', 'Sync Failed');
+            }
+            return result;
         }
 
-        function deleteTeacherScheduleRow(teacherId, scheduleId) {
+        async function deleteTeacherScheduleRow(teacherId, scheduleId) {
             const teachers = getScheduleData('eduCore_teachers');
             const teacher = teachers.find((item) => String(item.id) === String(teacherId));
             if (!teacher) return;
             teacher.schedule = parseSchedule(teacher.schedule).filter((item) => item.id !== scheduleId);
-            saveTeachers(teachers);
+            await saveTeachers(teachers, teacher);
+            populateTeacherSchedulingOptions();
             renderTeacherSchedules();
         }
 
@@ -355,9 +557,10 @@
             const schedule = parseSchedule(teacher.schedule).find((item) => item.id === scheduleId);
             if (!schedule) return;
 
+            const normalized = splitTimetableClassSection(schedule.classGrade, schedule.section);
             document.getElementById('teacherScheduleEditId').value = schedule.id;
+            populateTeacherSchedulingOptions(normalized.classGrade, normalized.section);
             document.getElementById('teacherScheduleTeacher').value = teacher.id;
-            document.getElementById('teacherScheduleClass').value = schedule.classGrade || '';
             document.getElementById('teacherScheduleDay').value = schedule.day || 'Monday';
             document.getElementById('teacherScheduleSubject').value = schedule.subject || '';
             document.getElementById('teacherScheduleStart').value = schedule.startTime || '';
@@ -369,7 +572,7 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
-        document.getElementById('teacherSchedulePageForm').addEventListener('submit', (event) => {
+        document.getElementById('teacherSchedulePageForm').addEventListener('submit', async (event) => {
             event.preventDefault();
             const teachers = getScheduleData('eduCore_teachers');
             const teacherId = document.getElementById('teacherScheduleTeacher').value;
@@ -383,6 +586,7 @@
             const schedule = {
                 id: editId || `SCH-${Date.now()}`,
                 classGrade: document.getElementById('teacherScheduleClass').value,
+                section: document.getElementById('teacherScheduleSection').value,
                 day: document.getElementById('teacherScheduleDay').value,
                 subject: document.getElementById('teacherScheduleSubject').value.trim(),
                 startTime: document.getElementById('teacherScheduleStart').value,
@@ -390,8 +594,12 @@
                 room: document.getElementById('teacherScheduleRoom').value.trim(),
                 note: document.getElementById('teacherScheduleNote').value.trim()
             };
-            if (!schedule.classGrade || !schedule.subject || !schedule.startTime || !schedule.endTime) {
-                showAppAlert('Class, lecture, start time, and end time are required.', 'Missing Schedule');
+            if (!schedule.classGrade || !schedule.section || !schedule.subject || !schedule.startTime || !schedule.endTime) {
+                showAppAlert('Class, section, lecture, start time, and end time are required.', 'Missing Schedule');
+                return;
+            }
+            if (schedule.startTime >= schedule.endTime) {
+                showAppAlert('End time must be after start time.', 'Invalid Time');
                 return;
             }
 
@@ -403,7 +611,7 @@
                 scheduleRows.push(schedule);
             }
             teacher.schedule = scheduleRows;
-            saveTeachers(teachers);
+            await saveTeachers(teachers, teacher);
             event.target.reset();
             document.getElementById('teacherScheduleEditId').value = '';
             document.querySelector('#teacherSchedulePageForm button[type="submit"]').innerHTML = '<i data-lucide="save"></i> Save Schedule';
@@ -415,6 +623,12 @@
         populateTeacherSchedulingOptions();
         applyTeacherScheduleMode();
         renderTeacherSchedules();
+        document.getElementById('teacherTimetableFilterTeacher').addEventListener('change', renderTeacherSchedules);
+        document.getElementById('teacherTimetableFilterClass').addEventListener('change', () => {
+            populateTeacherTimetableFilterSectionOptions();
+            renderTeacherSchedules();
+        });
+        document.getElementById('teacherTimetableFilterSection').addEventListener('change', renderTeacherSchedules);
         window.addEventListener('hashchange', applyTeacherScheduleMode);
         if (window.lucide) window.lucide.createIcons();
     </script>

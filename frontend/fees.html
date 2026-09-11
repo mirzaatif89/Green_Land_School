@@ -856,6 +856,9 @@
                         <select id="feeCampusFilter" class="fee-campus-filter" aria-label="Filter by campus">
                             <option value="all">All Campuses</option>
                         </select>
+                        <select id="feeSectionFilter" class="fee-campus-filter" aria-label="Filter by section">
+                            <option value="all">All Sections</option>
+                        </select>
                         <div class="fee-print-controls">
                             <select id="feePrintClassFilter" class="fee-print-filter" aria-label="Class for fee print">
                                 <option value="all">All Classes</option>
@@ -914,6 +917,7 @@
                                 <th>Roll No</th>
                                 <th>Student Name</th>
                                 <th>Father Name</th>
+                                <th>Class / Section</th>
                                 <th>Monthly Fee</th>
                                 <th>Paid / Pending</th>
                                 <th>Current Status</th>
@@ -1638,6 +1642,164 @@
             await mergeFeePaymentsIntoMonthlyStore();
         }
 
+        let directPayPrintQueue = [];
+
+        const directPayEsc = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+
+        function getDirectPayPrintMonth() {
+            const dateValue = document.getElementById('directPayPrintDate')?.value || getTodayDateInputValue();
+            const date = new Date(`${dateValue}T12:00:00`);
+            return Number.isNaN(date.getTime()) ? CURRENT_MONTH_NAME : monthsList[date.getMonth()];
+        }
+
+        function renderDirectPayPrintQueue() {
+            const list = document.getElementById('directPayPrintQueue');
+            const payButton = document.getElementById('directPayButton');
+            const printButton = document.getElementById('directPayPrintButton');
+            if (!list) return;
+
+            if (!directPayPrintQueue.length) {
+                list.innerHTML = '<div class="empty-state">No students added yet. Enter a Student ID, admission number, or roll number above.</div>';
+            } else {
+                list.innerHTML = directPayPrintQueue.map((student, index) => `
+                    <div class="month-row" style="margin-bottom:8px">
+                        <div>
+                            <div class="month-name">${directPayEsc(student.fullName || student.studentName || 'Student')}</div>
+                            <div class="choice-meta">ID: ${directPayEsc(student.id)} | Roll No: ${directPayEsc(student.rollNo || '-')} | ${directPayEsc(getStudentClassSectionLabel(student))}</div>
+                        </div>
+                        <div class="month-payment-actions">
+                            <strong>PKR ${getFeeStudentMonthlyAmount(student).toLocaleString('en-PK')}</strong>
+                            <button class="toggle-fee-btn btn-mark-unpaid" type="button" data-direct-pay-remove="${index}">Remove</button>
+                        </div>
+                    </div>`).join('');
+            }
+            if (payButton) payButton.disabled = !directPayPrintQueue.length;
+            if (printButton) printButton.disabled = !directPayPrintQueue.length;
+        }
+
+        function addDirectPayPrintStudent() {
+            const input = document.getElementById('directPayPrintStudentId');
+            const message = document.getElementById('directPayPrintMessage');
+            const query = String(input?.value || '').trim().toLowerCase();
+            if (!query) {
+                message.textContent = 'Enter a Student ID, admission number, or roll number.';
+                return;
+            }
+            const students = getData(STORAGE_KEY_STUDENTS) || [];
+            const student = students.find(item => [item.id, item.studentCode, item.admissionNo, item.rollNo]
+                .some(value => String(value || '').trim().toLowerCase() === query));
+            if (!student) {
+                message.textContent = 'No student was found with this ID.';
+                return;
+            }
+            if (directPayPrintQueue.some(item => String(item.id) === String(student.id))) {
+                message.textContent = 'This student is already in the payment list.';
+                return;
+            }
+            if (isFeeZeroFeeStudent(student) || getFeeStudentMonthlyAmount(student) <= 0) {
+                message.textContent = 'This student has no monthly fee configured.';
+                return;
+            }
+            directPayPrintQueue.push(student);
+            input.value = '';
+            message.textContent = `${student.fullName || 'Student'} added to the list.`;
+            renderDirectPayPrintQueue();
+        }
+
+        function printDirectPayReceipts(receipts, paymentDate, month, existingPrintWindow = null) {
+            const printWindow = existingPrintWindow || window.open('', 'directPayPrintReceipts', 'width=980,height=760');
+            if (!printWindow) return false;
+            const dateLabel = new Date(`${paymentDate}T12:00:00`).toLocaleDateString('en-GB');
+            const pages = receipts.map(({ student, result }) => `
+                <section class="challan">
+                    <div class="school">Beacon Light School System</div>
+                    <div class="title">FEE PAYMENT RECEIPT - PAID</div>
+                    <div class="paid">PAID</div>
+                    <table>
+                        <tr><th>Student Name</th><td>${directPayEsc(student.fullName || student.studentName || '')}</td><th>Student ID</th><td>${directPayEsc(student.id)}</td></tr>
+                        <tr><th>Class / Section</th><td>${directPayEsc(getStudentClassSectionLabel(student))}</td><th>Roll No.</th><td>${directPayEsc(student.rollNo || '-')}</td></tr>
+                        <tr><th>Fee Month</th><td>${directPayEsc(month)}</td><th>Payment Date</th><td>${directPayEsc(dateLabel)}</td></tr>
+                        <tr><th>Amount Paid</th><td>PKR ${Number(result.payment?.amount || getFeeStudentMonthlyAmount(student)).toLocaleString('en-PK')}</td><th>Receipt No.</th><td>${directPayEsc(result.payment?.challanNumber || '-')}</td></tr>
+                    </table>
+                    <p>This challan has been paid and recorded in the school system.</p>
+                </section>`).join('');
+            printWindow.document.write(`<!doctype html><html><head><title>Paid Fee Challans</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#17342e}.challan{border:2px solid #08755f;padding:22px;margin:0 0 18px;position:relative;page-break-after:always}.school{font-size:22px;font-weight:800;color:#08755f;text-align:center}.title{text-align:center;font-weight:800;margin:7px 0 20px}.paid{position:absolute;right:25px;top:70px;border:3px solid #128049;color:#128049;font-size:22px;font-weight:800;padding:5px 12px;transform:rotate(-10deg)}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #8ca99f;padding:10px;text-align:left}th{width:18%;background:#eef8f2}p{text-align:center;margin:24px 0 0;color:#49665c}@media print{.challan:last-child{page-break-after:auto}}</style></head><body>${pages}<script>window.onload=()=>window.print();<\/script></body></html>`);
+            printWindow.document.close();
+            return true;
+        }
+
+        async function processDirectPayPrint(shouldPrint) {
+            const message = document.getElementById('directPayPrintMessage');
+            const paymentDate = document.getElementById('directPayPrintDate')?.value || getTodayDateInputValue();
+            const month = getDirectPayPrintMonth();
+            const buttons = [document.getElementById('directPayButton'), document.getElementById('directPayPrintButton')];
+            if (!directPayPrintQueue.length) return;
+            const printWindow = shouldPrint ? window.open('', 'directPayPrintReceipts', 'width=980,height=760') : null;
+            buttons.forEach(button => { if (button) button.disabled = true; });
+            message.textContent = 'Saving payments...';
+
+            const receipts = [];
+            try {
+                for (const student of directPayPrintQueue) {
+                    const amount = getFeeStudentMonthlyAmount(student);
+                    const result = await saveManualFeePayment(student, month, amount, paymentDate, amount);
+                    receipts.push({ student, result });
+                }
+                const monthStore = JSON.parse(localStorage.getItem(STORAGE_KEY_MONTHLY_FEES) || '{}');
+                receipts.forEach(({ student }) => {
+                    monthStore[student.id] = { ...(monthStore[student.id] || {}), [month]: 'Paid' };
+                });
+                localStorage.setItem(STORAGE_KEY_MONTHLY_FEES, JSON.stringify(monthStore));
+                await mergeFeePaymentsIntoMonthlyStore();
+                const count = receipts.length;
+                directPayPrintQueue = [];
+                renderDirectPayPrintQueue();
+                message.textContent = `${count} student fee payment${count === 1 ? '' : 's'} saved successfully.`;
+                if (shouldPrint && !printDirectPayReceipts(receipts, paymentDate, month, printWindow)) {
+                    message.textContent = 'Payments saved successfully, but the print window was blocked by the browser.';
+                }
+            } catch (error) {
+                if (printWindow) printWindow.close();
+                message.textContent = error.message || 'Some payments could not be saved. Please check the payment history.';
+            } finally {
+                renderDirectPayPrintQueue();
+            }
+        }
+
+        function showDirectPayPrintScreen() {
+            if (window.location.hash !== '#direct-pay-print') return;
+            document.getElementById('feesGridView').style.display = 'none';
+            document.getElementById('feesTableView').style.display = 'none';
+            document.getElementById('studentFeeRecordView').style.display = 'none';
+            const headerActions = document.querySelector('.fee-header-actions');
+            if (headerActions) headerActions.style.display = 'none';
+            document.getElementById('pageTitle').textContent = 'Direct Pay & Print';
+
+            let screen = document.getElementById('directPayPrintScreen');
+            if (!screen) {
+                screen = document.createElement('section');
+                screen.id = 'directPayPrintScreen';
+                screen.className = 'fees-section active';
+                screen.innerHTML = `<div class="section-header" style="display:block"><h2 style="margin:0;color:var(--primary-color)">Direct Pay & Print</h2><p style="margin:.45rem 0 0;color:var(--text-secondary)">Add students whose fees have already been received, then save all payments together.</p></div><div class="form-strip"><label class="field-label">Payment Date<input id="directPayPrintDate" type="date"></label><label class="field-label">Student ID / Admission No. / Roll No.<input id="directPayPrintStudentId" autocomplete="off" placeholder="Enter student ID"></label><div class="fee-payment-actions"><button id="directPayPrintAddStudent" class="toggle-fee-btn btn-add-payment" type="button">Add Student</button></div></div><p id="directPayPrintMessage" class="fee-payment-help" aria-live="polite"></p><div id="directPayPrintQueue" style="margin:16px 0"></div><div class="fee-payment-actions" style="justify-content:flex-end"><button id="directPayButton" class="toggle-fee-btn btn-mark-paid" type="button">Pay</button><button id="directPayPrintButton" class="toggle-fee-btn btn-mark-paid" type="button">Pay & Print</button></div>`;
+                document.querySelector('.main-content').appendChild(screen);
+                document.getElementById('directPayPrintDate').value = getTodayDateInputValue();
+                document.getElementById('directPayPrintAddStudent').onclick = addDirectPayPrintStudent;
+                document.getElementById('directPayPrintStudentId').addEventListener('keydown', event => {
+                    if (event.key === 'Enter') { event.preventDefault(); addDirectPayPrintStudent(); }
+                });
+                document.getElementById('directPayPrintQueue').addEventListener('click', event => {
+                    const index = event.target.closest('[data-direct-pay-remove]')?.dataset.directPayRemove;
+                    if (index === undefined) return;
+                    directPayPrintQueue.splice(Number(index), 1);
+                    renderDirectPayPrintQueue();
+                });
+                document.getElementById('directPayButton').onclick = () => processDirectPayPrint(false);
+                document.getElementById('directPayPrintButton').onclick = () => processDirectPayPrint(true);
+            }
+            screen.style.display = 'block';
+            renderDirectPayPrintQueue();
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             await loadFeesStudents();
             if (typeof loadClassFeeDefaults === 'function') {
@@ -1645,9 +1807,12 @@
             }
             initFeeFineDropdown();
             populateFeeCampusFilter();
+            populateFeeSectionFilter();
             populateFeePrintClassFilter();
             renderFeesClassGrid();
             syncAutomaticFineCharges();
+            showDirectPayPrintScreen();
+            window.addEventListener('hashchange', showDirectPayPrintScreen);
 
             const campusFilter = document.getElementById('feeCampusFilter');
             if (campusFilter) {
@@ -1657,27 +1822,13 @@
                     } else {
                         localStorage.setItem('eduCore_dashboard_campus_filter', campusFilter.value || 'all');
                     }
-                    const searchInput = document.getElementById('feeSearchInput');
-                    const term = (searchInput?.value || '').toLowerCase().trim();
-                    const tableView = document.getElementById('feesTableView');
-                    const recordView = document.getElementById('studentFeeRecordView');
-
-                    if (recordView.classList.contains('active')) {
-                        backToFeesList();
-                        return;
-                    }
-
-                    if (term) {
-                        showFeeSearchResults(term);
-                    } else if (tableView.classList.contains('active')) {
-                        const classId = tableView.dataset.classId || 'all';
-                        updateFeeListHeading(classId);
-                        renderClassStudentList(classId);
-                    } else {
-                        renderFeesClassGrid();
-                    }
+                    populateFeeSectionFilter();
+                    refreshFeeScopeView();
                 });
             }
+
+            const sectionFilter = document.getElementById('feeSectionFilter');
+            if (sectionFilter) sectionFilter.addEventListener('change', refreshFeeScopeView);
 
             // Search implementation
             const searchInput = document.getElementById('feeSearchInput');
@@ -1738,6 +1889,16 @@
             return (student.campusName || student.branchName || student.campus || 'Main Campus').toString().trim() || 'Main Campus';
         }
 
+        function getStudentSection(student = {}) {
+            return String(student.section || student.classSection || student.sectionName || '').trim();
+        }
+
+        function getStudentClassSectionLabel(student = {}) {
+            const className = String(student.classGrade || student.className || '-').trim() || '-';
+            const section = getStudentSection(student);
+            return section ? `${className} - ${section}` : className;
+        }
+
         function getSelectedFeeCampus() {
             const selectValue = document.getElementById('feeCampusFilter')?.value || '';
             if (selectValue) return selectValue;
@@ -1755,6 +1916,20 @@
         function getFeeCampusSuffix() {
             const campus = getSelectedFeeCampusLabel();
             return getSelectedFeeCampus() === 'all' ? '' : ` - ${campus}`;
+        }
+
+        function getSelectedFeeSection() {
+            return String(document.getElementById('feeSectionFilter')?.value || 'all').trim() || 'all';
+        }
+
+        function getFeeSectionSuffix() {
+            const section = getSelectedFeeSection();
+            return section === 'all' ? '' : ` - Section ${section}`;
+        }
+
+        function studentMatchesFeeSection(student = {}) {
+            const selectedSection = getSelectedFeeSection();
+            return selectedSection === 'all' || getStudentSection(student).toLowerCase() === selectedSection.toLowerCase();
         }
 
         function getFeeClassLabelById(classId = 'all') {
@@ -1777,15 +1952,52 @@
             select.value = [...select.options].some(option => option.value === previousValue) ? previousValue : 'all';
         }
 
+        function populateFeeSectionFilter() {
+            const select = document.getElementById('feeSectionFilter');
+            if (!select) return;
+            const currentValue = select.value || 'all';
+            const selectedCampus = getSelectedFeeCampus();
+            const sections = [...new Set(getData(STORAGE_KEY_STUDENTS)
+                .filter((student) => selectedCampus === 'all' || getStudentCampusName(student) === selectedCampus)
+                .map(getStudentSection)
+                .filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+            select.innerHTML = '<option value="all">All Sections</option>' + sections
+                .map((section) => `<option value="${escapeHtml(section)}">${escapeHtml(section)}</option>`)
+                .join('');
+            select.value = sections.includes(currentValue) ? currentValue : 'all';
+        }
+
         function getCampusFilteredFeeStudents() {
             const selectedCampus = getSelectedFeeCampus();
             const students = getData(STORAGE_KEY_STUDENTS);
 
-            if (selectedCampus === 'all') {
-                return students;
+            return students.filter((student) =>
+                (selectedCampus === 'all' || getStudentCampusName(student) === selectedCampus) &&
+                studentMatchesFeeSection(student)
+            );
+        }
+
+        function refreshFeeScopeView() {
+            const searchInput = document.getElementById('feeSearchInput');
+            const term = (searchInput?.value || '').toLowerCase().trim();
+            const tableView = document.getElementById('feesTableView');
+            const recordView = document.getElementById('studentFeeRecordView');
+
+            if (recordView.classList.contains('active')) {
+                backToFeesList();
+                return;
             }
 
-            return students.filter(student => getStudentCampusName(student) === selectedCampus);
+            if (term) {
+                showFeeSearchResults(term);
+            } else if (tableView.classList.contains('active')) {
+                const classId = tableView.dataset.classId || 'all';
+                updateFeeListHeading(classId);
+                renderClassStudentList(classId);
+            } else {
+                renderFeesClassGrid();
+            }
         }
 
         function studentMatchesFeeClass(student, classId = 'all') {
@@ -1850,7 +2062,7 @@
         }
 
         function updateFeeListHeading(classId) {
-            const suffix = getFeeCampusSuffix();
+            const suffix = getFeeCampusSuffix() + getFeeSectionSuffix();
 
             if (classId === 'all') {
                 document.getElementById('selectedClassTitle').innerText = 'All Students' + suffix;
@@ -1898,6 +2110,8 @@
             const schoolName = rawSchoolName || 'Beacon Light School System';
             const campusLabel = getSelectedFeeCampus() === 'all' ? 'All Campuses' : getSelectedFeeCampusLabel();
             const classLabel = getFeeClassLabelById(classId);
+            const selectedSection = getSelectedFeeSection();
+            const sectionLabel = selectedSection === 'all' ? 'All Sections' : selectedSection;
             const statusLabel = status === 'all' ? 'All Students' : (status === 'paid' ? 'Paid Students' : 'Unpaid Students');
             const printedAt = new Date().toLocaleString();
             const totalMonthlyFee = students.reduce((sum, student) => sum + getFeeStudentMonthlyAmount(student), 0);
@@ -1918,7 +2132,7 @@
                         <td>${esc(student.rollNo || '-')}</td>
                         <td>${esc(student.fullName || '-')}</td>
                         <td>${esc(student.fatherName || '-')}</td>
-                        <td>${esc(student.classGrade || '-')}</td>
+                        <td>${esc(getStudentClassSectionLabel(student))}</td>
                         <td>${esc(getStudentCampusName(student))}</td>
                         <td class="amount">${esc(formatAmount(monthlyFee))}</td>
                         <td class="amount">${esc(formatAmount(fineAmount))}</td>
@@ -1961,7 +2175,7 @@
                             <div class="title">${esc(schoolName)}</div>
                             <div class="subtitle">
                                 ${esc(statusLabel)} | ${esc(CURRENT_MONTH_NAME)}<br>
-                                Campus: ${esc(campusLabel)} | Class: ${esc(classLabel)}<br>
+                                Campus: ${esc(campusLabel)} | Class: ${esc(classLabel)} | Section: ${esc(sectionLabel)}<br>
                                 Printed: ${esc(printedAt)}
                             </div>
                         </div>
@@ -1979,7 +2193,7 @@
                                 <th>Roll No</th>
                                 <th>Student Name</th>
                                 <th>Father Name</th>
-                                <th>Class</th>
+                                <th>Class / Section</th>
                                 <th>Campus</th>
                                 <th>Monthly Fee</th>
                                 <th>Fine</th>
@@ -2080,7 +2294,7 @@
             }
 
             if (term) {
-                const searchFields = ['fullName', 'rollNo', 'studentCode', 'fatherName', 'classGrade', 'campusName', 'parentPhone', 'feesStatus'];
+                const searchFields = ['fullName', 'rollNo', 'studentCode', 'fatherName', 'classGrade', 'section', 'classSection', 'sectionName', 'campusName', 'parentPhone', 'feesStatus'];
                 filteredStudents = filteredStudents.filter(s =>
                     searchFields.some((field) => {
                         const value = String(s?.[field] ?? '').toLowerCase();
@@ -2124,6 +2338,7 @@
                         </div>
                     </td>
                     <td>${s.fatherName || '-'}</td>
+                    <td>${getStudentClassSectionLabel(s)}</td>
                     <td><strong>PKR ${getFeeStudentMonthlyAmount(s).toLocaleString('en-PK')}</strong></td>
                     <td>
                         <div style="font-size:0.85rem;line-height:1.5;">
@@ -2153,7 +2368,7 @@
 
             document.getElementById('selectedStudentName').innerText = student.fullName;
             document.getElementById('spanRollNo').innerText = student.rollNo;
-            document.getElementById('spanClass').innerText = student.classGrade;
+            document.getElementById('spanClass').innerText = getStudentClassSectionLabel(student);
             document.getElementById('pageTitle').innerText = 'Record: ' + student.fullName;
 
             renderMonthlyFeeRecord(studentId);

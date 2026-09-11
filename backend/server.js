@@ -1642,6 +1642,7 @@ function normalizeStudentDiaryPayload(payload = {}) {
         id: String(payload.id || `DIARY-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
         campusName: String(payload.campusName || '').trim(),
         classGrade,
+        section: String(payload.section || payload.classSection || 'General').trim() || 'General',
         date,
         title,
         details,
@@ -2545,6 +2546,7 @@ app.post('/api/fees/manual-payment', async (req, res) => {
             session,
             amount,
             fullAmount,
+            paymentDate,
             challanNumber
         } = req.body || {};
 
@@ -2593,7 +2595,9 @@ app.post('/api/fees/manual-payment', async (req, res) => {
 
         const existingPayment = await FeePayment.findByPk(safeChallanNumber);
         const alreadyRecorded = existingPayment && ['Paid', 'Partial'].includes(String(existingPayment.status || ''));
-        const paidAt = existingPayment?.paidAt || new Date();
+        const requestedPaymentDate = String(paymentDate || '').trim();
+        const parsedPaymentDate = requestedPaymentDate ? new Date(`${requestedPaymentDate}T12:00:00`) : null;
+        const paidAt = existingPayment?.paidAt || (parsedPaymentDate && !Number.isNaN(parsedPaymentDate.getTime()) ? parsedPaymentDate : new Date());
         const paymentDateLabel = paidAt.toLocaleDateString('en-GB');
 
         const newPaymentRow = {
@@ -2994,7 +2998,7 @@ app.get('/api/teachers', async (req, res) => {
         const teachers = await sequelize.models.Teacher.findAll({
             attributes: [
                 'id', 'employeeCode', 'fullName', 'profileImage', 'fatherName', 'dob', 'cnic', 'phone',
-                'email', 'address', 'qualification', 'campusName', 'gender', 'designation', 'subject', 'salary',
+                'email', 'address', 'qualification', 'campusName', 'gender', 'designation', 'subject', 'assignedSections', 'salary',
                 'idCardFront', 'idCardBack', 'cvFile', 'bankName', 'bankAccountTitle',
                 'bankAccountNumber', 'bankBranch', 'schedule', 'username', 'password', 'plainPassword', 'role', 'groupKey'
             ]
@@ -3100,7 +3104,7 @@ app.post('/api/teachers', authenticateToken, async (req, res) => {
         const allTeachers = await Teacher.findAll({
             attributes: [
                 'id', 'employeeCode', 'fullName', 'profileImage', 'fatherName', 'dob', 'cnic', 'phone',
-                'email', 'address', 'qualification', 'campusName', 'gender', 'designation', 'subject', 'salary',
+                'email', 'address', 'qualification', 'campusName', 'gender', 'designation', 'subject', 'assignedSections', 'salary',
                 'idCardFront', 'idCardBack', 'cvFile', 'bankName', 'bankAccountTitle',
                 'bankAccountNumber', 'bankBranch', 'schedule', 'username', 'password', 'plainPassword', 'role', 'groupKey'
             ]
@@ -3140,7 +3144,7 @@ app.delete('/api/teachers/:id', authenticateToken, async (req, res) => {
         const allTeachers = await Teacher.findAll({
             attributes: [
                 'id', 'employeeCode', 'fullName', 'profileImage', 'fatherName', 'dob', 'cnic', 'phone',
-                'email', 'address', 'qualification', 'campusName', 'gender', 'designation', 'subject', 'salary',
+                'email', 'address', 'qualification', 'campusName', 'gender', 'designation', 'subject', 'assignedSections', 'salary',
                 'idCardFront', 'idCardBack', 'cvFile', 'bankName', 'bankAccountTitle',
                 'bankAccountNumber', 'bankBranch', 'schedule', 'username', 'password', 'plainPassword', 'role', 'groupKey'
             ]
@@ -3506,6 +3510,7 @@ app.post('/api/student-performance', authenticateToken, async (req, res) => {
                 studentId,
                 studentName: String(item.studentName || '').trim(),
                 classGrade: String(item.classGrade || '').trim(),
+                section: String(item.section || item.classSection || 'General').trim() || 'General',
                 subject,
                 percentage,
                 grade,
@@ -3932,6 +3937,7 @@ function defineStudentModel(db) {
         dob: DataTypes.STRING(20),
         admissionDate: DataTypes.STRING(20),
         classGrade: DataTypes.STRING(50),
+        section: DataTypes.STRING(30),
         subjects: DataTypes.TEXT,
         campusName: DataTypes.STRING(80),
         gender: DataTypes.STRING(20),
@@ -3983,6 +3989,7 @@ function defineTeacherModel(db) {
         gender: DataTypes.STRING,
         designation: DataTypes.STRING,
         subject: DataTypes.STRING,
+        assignedSections: DataTypes.TEXT,
         salary: DataTypes.STRING,
         idCardFront: DataTypes.TEXT('long'),
         idCardBack: DataTypes.TEXT('long'),
@@ -4104,6 +4111,7 @@ function defineStudentDiaryModel(db) {
         id: { type: DataTypes.STRING, primaryKey: true },
         campusName: { type: DataTypes.STRING, allowNull: true },
         classGrade: { type: DataTypes.STRING, allowNull: false },
+        section: { type: DataTypes.STRING, allowNull: true },
         date: { type: DataTypes.STRING, allowNull: false },
         title: { type: DataTypes.STRING, allowNull: false },
         details: { type: DataTypes.TEXT('long'), allowNull: false },
@@ -4122,6 +4130,7 @@ function defineStudentPerformanceModel(db) {
         studentId: { type: DataTypes.STRING, allowNull: false },
         studentName: { type: DataTypes.STRING, allowNull: false },
         classGrade: { type: DataTypes.STRING, allowNull: false },
+        section: { type: DataTypes.STRING, allowNull: true },
         subject: { type: DataTypes.STRING, allowNull: false },
         percentage: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
         grade: { type: DataTypes.STRING, allowNull: true },
@@ -4455,6 +4464,7 @@ async function ensureLegacySchema() {
         dob: { type: DataTypes.STRING, allowNull: true },
         admissionDate: { type: DataTypes.STRING, allowNull: true },
         classGrade: { type: DataTypes.STRING, allowNull: true },
+        section: { type: DataTypes.STRING, allowNull: true },
         subjects: { type: DataTypes.TEXT, allowNull: true },
         campusName: { type: DataTypes.STRING, allowNull: true },
         gender: { type: DataTypes.STRING, allowNull: true },
@@ -4515,6 +4525,7 @@ async function ensureLegacySchema() {
         gender: { type: DataTypes.STRING, allowNull: true },
         designation: { type: DataTypes.STRING, allowNull: true },
         subject: { type: DataTypes.STRING, allowNull: true },
+        assignedSections: { type: DataTypes.TEXT, allowNull: true },
         salary: { type: DataTypes.STRING, allowNull: true },
         idCardFront: { type: DataTypes.TEXT('long'), allowNull: true },
         idCardBack: { type: DataTypes.TEXT('long'), allowNull: true },
@@ -4575,6 +4586,7 @@ async function ensureLegacySchema() {
     });
 
     await ensureTableColumns('StudentPerformances', {
+        section: { type: DataTypes.STRING, allowNull: true },
         skill: { type: DataTypes.STRING, allowNull: true },
         learningOutcome: { type: DataTypes.TEXT, allowNull: true },
         rating: { type: DataTypes.STRING, allowNull: true },
@@ -4583,6 +4595,9 @@ async function ensureLegacySchema() {
         needsPracticeDescription: { type: DataTypes.TEXT, allowNull: true },
         performanceDate: { type: DataTypes.STRING, allowNull: true },
         performanceMonth: { type: DataTypes.STRING, allowNull: true }
+    });
+    await ensureTableColumns('StudentDiaries', {
+        section: { type: DataTypes.STRING, allowNull: true }
     });
     await removeLegacyStudentPerformanceUniqueIndex();
 }

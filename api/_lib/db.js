@@ -18,6 +18,7 @@ function defineStudentModel(db) {
         dob: DataTypes.STRING(20),
         admissionDate: DataTypes.STRING(20),
         classGrade: DataTypes.STRING(50),
+        section: DataTypes.STRING(30),
         subjects: DataTypes.TEXT,
         campusName: DataTypes.STRING(80),
         gender: DataTypes.STRING(20),
@@ -69,6 +70,7 @@ function defineTeacherModel(db) {
         gender: DataTypes.STRING,
         designation: DataTypes.STRING,
         subject: DataTypes.STRING,
+        assignedSections: DataTypes.TEXT,
         salary: DataTypes.STRING,
         idCardFront: DataTypes.TEXT('long'),
         idCardBack: DataTypes.TEXT('long'),
@@ -223,6 +225,7 @@ function defineStudentPerformanceModel(db) {
         studentId: { type: DataTypes.STRING, allowNull: false },
         studentName: { type: DataTypes.STRING, allowNull: false },
         classGrade: { type: DataTypes.STRING, allowNull: false },
+        section: { type: DataTypes.STRING, allowNull: true },
         subject: { type: DataTypes.STRING, allowNull: false },
         percentage: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
         grade: { type: DataTypes.STRING, allowNull: true },
@@ -317,6 +320,7 @@ async function ensureLegacySchema(db) {
         dob: { type: DataTypes.STRING, allowNull: true },
         admissionDate: { type: DataTypes.STRING, allowNull: true },
         classGrade: { type: DataTypes.STRING, allowNull: true },
+        section: { type: DataTypes.STRING, allowNull: true },
         subjects: { type: DataTypes.TEXT, allowNull: true },
         campusName: { type: DataTypes.STRING, allowNull: true },
         gender: { type: DataTypes.STRING, allowNull: true },
@@ -377,6 +381,7 @@ async function ensureLegacySchema(db) {
         gender: { type: DataTypes.STRING, allowNull: true },
         designation: { type: DataTypes.STRING, allowNull: true },
         subject: { type: DataTypes.STRING, allowNull: true },
+        assignedSections: { type: DataTypes.TEXT, allowNull: true },
         salary: { type: DataTypes.STRING, allowNull: true },
         idCardFront: { type: DataTypes.TEXT('long'), allowNull: true },
         idCardBack: { type: DataTypes.TEXT('long'), allowNull: true },
@@ -437,6 +442,7 @@ async function ensureLegacySchema(db) {
     });
 
     await ensureTableColumns(db, 'StudentPerformances', {
+        section: { type: DataTypes.STRING, allowNull: true },
         skill: { type: DataTypes.STRING, allowNull: true },
         learningOutcome: { type: DataTypes.TEXT, allowNull: true },
         rating: { type: DataTypes.STRING, allowNull: true },

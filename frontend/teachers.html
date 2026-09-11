@@ -60,6 +60,11 @@
             box-sizing: border-box;
         }
 
+        #teacherForm .input-group select[multiple] {
+            height: 92px !important;
+            padding: 0.35rem 0.55rem !important;
+        }
+
         #teacherForm .input-group input,
         #teacherForm .input-group select {
             padding: 0.42rem 0.65rem !important;
@@ -804,6 +809,12 @@
                             <option value="Female">Female</option>
                         </select>
                     </div>
+                    <div class="input-group teacher-filter-group">
+                        <label>Filter By Section</label>
+                        <select id="teacherSectionFilter">
+                            <option value="">All Sections</option>
+                        </select>
+                    </div>
                 </div>
                 <button class="btn btn-primary teacher-add-btn" onclick="toggleTeacherForm()">
                     <i data-lucide="plus"></i> Add New Teacher
@@ -895,6 +906,10 @@
                                 <option>Nazra</option>
                                 <option>Math</option>
                             </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="tAssignedSections">Assigned Class Sections</label>
+                            <select id="tAssignedSections" multiple size="4" aria-label="Assigned class sections"></select>
                         </div>
                         <div class="input-group">
                             <label>Profile Image</label>
@@ -1003,22 +1018,6 @@
                     </div>
 
                     <input type="hidden" id="scheduleTeacherId">
-                    <datalist id="scheduleClassOptions">
-                        <option value="Play Group">
-                        <option value="Nursarry">
-                        <option value="Prep">
-                        <option value="Class One">
-                        <option value="Class Two">
-                        <option value="Class Three">
-                        <option value="Class Four">
-                        <option value="Class Five">
-                        <option value="Class Six">
-                        <option value="Class Seven">
-                        <option value="Class Eight">
-                        <option value="Class Nine">
-                        <option value="Class 10">
-                    </datalist>
-
                     <div class="schedule-form-grid">
                         <div class="input-group">
                             <label>Day</label>
@@ -1033,7 +1032,15 @@
                         </div>
                         <div class="input-group">
                             <label>Class</label>
-                            <input type="text" id="scheduleClass" list="scheduleClassOptions" placeholder="Class Five">
+                            <select id="scheduleClass" onchange="refreshTeacherScheduleSectionOptions()">
+                                <option value="">Select Class</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Section</label>
+                            <select id="scheduleSection">
+                                <option value="">Select Class First</option>
+                            </select>
                         </div>
                         <div class="input-group">
                             <label>Lecture / Subject</label>
@@ -1086,7 +1093,7 @@
                             <th>Father's Name</th>
                             <th>DOB</th>
                             <th>Campus</th>
-                            <th>Subject</th>
+                            <th>Subject / Sections</th>
                             <th>Login Details</th>
                             <th>Salary</th>
                             <th>Phone</th>

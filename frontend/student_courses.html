@@ -50,6 +50,7 @@
                     <div class="schedule-grid">
                         <div><label>Campus</label><select id="studentCourseCampus" required></select></div>
                         <div><label>Class</label><select id="studentCourseClass" required></select></div>
+                        <div><label>Section</label><select id="studentCourseSection" required></select></div>
                         <div><label>Subject / Course Title</label><input type="text" id="studentCourseTitle" required placeholder="e.g. Mathematics"></div>
                         <div><label>Attach File</label><input type="file" id="studentCourseFile"></div>
                     </div>
@@ -63,6 +64,7 @@
     <div id="successModal" class="success-overlay"><div class="success-modal"><div class="success-icon-wrap"><i data-lucide="check-circle"></i></div><h2 id="successTitle">Success!</h2><p id="successMessage" style="color:var(--text-secondary); margin:1rem 0 2rem;"></p><button class="btn btn-primary" style="width:100%;" onclick="closeSuccessModal()">Great!</button></div></div>
     <script src="auth.js?v=20260814-live-auth-fix1"></script>
     <script src="script.js?v=20260814-local-runtime-fix6"></script>
+    <script src="student_schedule_sections.js"></script>
     <script>
         const STUDENT_COURSE_KEY = 'eduCore_student_courses';
         const COURSE_API_BASE = typeof getApiBaseUrl === 'function'
@@ -72,10 +74,10 @@
         function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch (_e) { showAppAlert('File/data is too large to save.', 'Storage Full'); return false; } }
         function esc(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char])); }
         function populateClasses() {
-            const students = data('eduCore_students');
-            const classes = data('eduCore_classes');
-            const names = [...new Set([...classes.map((item) => item?.section ? `${item.name} (${item.section})` : item?.name), ...students.map((student) => student?.classGrade)].map((value) => String(value || '').trim()).filter(Boolean))].sort();
-            studentCourseClass.innerHTML = '<option value="">Select Class</option>' + names.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+            const helper = window.studentSchedulingSections;
+            const existingCourses = data(STUDENT_COURSE_KEY);
+            helper?.populateClassSelect(studentCourseClass, studentCourseClass.value, existingCourses.map((item) => item.classGrade));
+            helper?.populateSectionSelect(studentCourseSection, studentCourseClass.value, studentCourseCampus.value, studentCourseSection.value, existingCourses);
         }
         function populateCampuses() {
             const students = data('eduCore_students');
@@ -98,7 +100,7 @@
         function render() {
             const courses = data(STUDENT_COURSE_KEY).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
             if (!courses.length) { studentCourseList.innerHTML = '<div class="empty-note">No class course added yet.</div>'; return; }
-            studentCourseList.innerHTML = `<table class="schedule-table"><thead><tr><th>Campus</th><th>Class</th><th>Title</th><th>Details</th><th>File</th><th>Action</th></tr></thead><tbody>${courses.map((item) => `<tr><td>${esc(item.campusName || 'All Campuses')}</td><td>${esc(item.classGrade)}</td><td>${esc(item.title)}</td><td>${esc(item.details)}</td><td>${item.file?.dataUrl ? `<a href="${item.file.dataUrl}" download="${esc(item.file.name || 'file')}">${esc(item.file.name || 'Download')}</a>` : '-'}</td><td><div class="schedule-actions"><button class="schedule-action-btn edit" onclick="editCourse('${item.id}')"><i data-lucide="edit-2" width="14"></i> Edit</button><button class="schedule-action-btn delete" onclick="deleteCourse('${item.id}')"><i data-lucide="trash-2" width="14"></i> Delete</button></div></td></tr>`).join('')}</tbody></table>`;
+            studentCourseList.innerHTML = `<table class="schedule-table"><thead><tr><th>Campus</th><th>Class</th><th>Section</th><th>Title</th><th>Details</th><th>File</th><th>Action</th></tr></thead><tbody>${courses.map((item) => `<tr><td>${esc(item.campusName || 'All Campuses')}</td><td>${esc(item.classGrade)}</td><td>${esc(item.section || 'General')}</td><td>${esc(item.title)}</td><td>${esc(item.details)}</td><td>${item.file?.dataUrl ? `<a href="${item.file.dataUrl}" download="${esc(item.file.name || 'file')}">${esc(item.file.name || 'Download')}</a>` : '-'}</td><td><div class="schedule-actions"><button class="schedule-action-btn edit" onclick="editCourse('${item.id}')"><i data-lucide="edit-2" width="14"></i> Edit</button><button class="schedule-action-btn delete" onclick="deleteCourse('${item.id}')"><i data-lucide="trash-2" width="14"></i> Delete</button></div></td></tr>`).join('')}</tbody></table>`;
             lucide.createIcons();
         }
         function mergeCourses(remote = [], cached = []) {
@@ -145,6 +147,7 @@
             const item = data(STUDENT_COURSE_KEY).find((entry) => entry.id === id);
             if (!item) return;
             studentCourseId.value = item.id; studentCourseCampus.value = item.campusName || ''; studentCourseClass.value = item.classGrade || ''; studentCourseTitle.value = item.title || ''; studentCourseDetails.value = item.details || '';
+            window.studentSchedulingSections?.populateSectionSelect(studentCourseSection, studentCourseClass.value, studentCourseCampus.value, item.section || 'General', data(STUDENT_COURSE_KEY));
             document.querySelector('#studentCourseForm button[type="submit"]').innerHTML = '<i data-lucide="save"></i> Update Course';
             studentCourseForm.scrollIntoView({ behavior: 'smooth', block: 'start' }); lucide.createIcons();
         }
@@ -167,8 +170,8 @@
             const editId = studentCourseId.value;
             const existing = data(STUDENT_COURSE_KEY).find((item) => item.id === editId);
             const file = await readFile(studentCourseFile);
-            const item = { id: editId || `COURSE-${Date.now()}`, campusName: studentCourseCampus.value, classGrade: studentCourseClass.value, title: studentCourseTitle.value.trim(), details: studentCourseDetails.value.trim(), file: file || existing?.file || null, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
-            if (!item.campusName || !item.classGrade || !item.title || !item.details) { showAppAlert('Campus, class, title, and details are required.', 'Missing Course'); return; }
+            const item = { id: editId || `COURSE-${Date.now()}`, campusName: studentCourseCampus.value, classGrade: studentCourseClass.value, section: studentCourseSection.value, title: studentCourseTitle.value.trim(), details: studentCourseDetails.value.trim(), file: file || existing?.file || null, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
+            if (!item.campusName || !item.classGrade || !item.section || !item.title || !item.details) { showAppAlert('Campus, class, section, title, and details are required.', 'Missing Course'); return; }
             const items = data(STUDENT_COURSE_KEY);
             const index = items.findIndex((entry) => entry.id === editId);
             if (index >= 0) items[index] = item; else items.push(item);
@@ -181,7 +184,9 @@
             }
             event.target.reset(); studentCourseId.value = ''; document.querySelector('#studentCourseForm button[type="submit"]').innerHTML = '<i data-lucide="save"></i> Save Course'; render(); showSuccessModal(editId ? 'Course Updated!' : 'Course Saved!', 'Class course is visible in student portal.');
         });
-        populateCampuses(); populateClasses(); loadCourses(); lucide.createIcons();
+        populateCampuses(); populateClasses();
+        window.studentSchedulingSections?.bindClassSectionControls({ classSelect: studentCourseClass, sectionSelect: studentCourseSection, campusSelect: studentCourseCampus, include: data(STUDENT_COURSE_KEY) });
+        loadCourses(); lucide.createIcons();
     </script>
 </body>
 

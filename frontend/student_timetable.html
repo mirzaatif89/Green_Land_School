@@ -50,6 +50,10 @@
                             <select id="studentScheduleClass" required></select>
                         </div>
                         <div>
+                            <label>Section</label>
+                            <select id="studentScheduleSection" required></select>
+                        </div>
+                        <div>
                             <label>Day</label>
                             <select id="studentScheduleDay" required>
                                 <option value="Monday">Monday</option>
@@ -111,6 +115,7 @@
 
     <script src="auth.js?v=20260814-live-auth-fix1"></script>
     <script src="script.js?v=20260814-local-runtime-fix6"></script>
+    <script src="student_schedule_sections.js"></script>
     <script>
         const STUDENT_SCHEDULE_KEY = 'eduCore_student_schedules';
 
@@ -144,16 +149,17 @@
 
         function populateStudentSchedulingOptions() {
             const classSelect = document.getElementById('studentScheduleClass');
+            const sectionSelect = document.getElementById('studentScheduleSection');
             const teacherSelect = document.getElementById('studentScheduleTeacher');
-            const students = getScheduleData('eduCore_students');
-            const classes = getScheduleData('eduCore_classes');
             const teachers = getScheduleData('eduCore_teachers');
-            const classNames = [...new Set([
-                ...classes.map((item) => item?.section ? `${item.name} (${item.section})` : item?.name),
-                ...students.map((student) => student?.classGrade)
-            ].map((value) => String(value || '').trim()).filter(Boolean))].sort();
-
-            classSelect.innerHTML = '<option value="">Select Class</option>' + classNames.map((name) => `<option value="${escapeLocalHtml(name)}">${escapeLocalHtml(name)}</option>`).join('');
+            const schedules = getScheduleData(STUDENT_SCHEDULE_KEY);
+            const selectedClass = classSelect.value;
+            const selectedSection = sectionSelect.value;
+            const helper = window.studentSchedulingSections;
+            if (helper) {
+                helper.populateClassSelect(classSelect, selectedClass, schedules.map((item) => item.classGrade));
+                helper.populateSectionSelect(sectionSelect, classSelect.value, '', selectedSection, schedules);
+            }
             teacherSelect.innerHTML = '<option value="">Select Teacher</option>' + teachers.map((teacher) => {
                 const name = escapeLocalHtml(teacher.fullName || 'Teacher');
                 const subject = teacher.subject ? ` - ${escapeLocalHtml(teacher.subject)}` : '';
@@ -173,11 +179,12 @@
             list.innerHTML = `
                 <div class="schedule-table-wrap">
                     <table class="schedule-table">
-                        <thead><tr><th>Class</th><th>Day</th><th>Lecture</th><th>Teacher</th><th>Time</th><th>Room</th><th>Action</th></tr></thead>
+                        <thead><tr><th>Class</th><th>Section</th><th>Day</th><th>Lecture</th><th>Teacher</th><th>Time</th><th>Room</th><th>Action</th></tr></thead>
                         <tbody>
                             ${schedules.map((item) => `
                                 <tr>
                                     <td>${escapeLocalHtml(item.classGrade || '-')}</td>
+                                    <td>${escapeLocalHtml(item.section || 'General')}</td>
                                     <td>${escapeLocalHtml(item.day || '-')}</td>
                                     <td>${escapeLocalHtml(item.subject || '-')}</td>
                                     <td>${escapeLocalHtml(item.teacherName || '-')}</td>
@@ -208,7 +215,15 @@
             if (!schedule) return;
 
             document.getElementById('studentScheduleId').value = schedule.id;
-            document.getElementById('studentScheduleClass').value = schedule.classGrade || '';
+            const parsedClass = window.studentSchedulingSections?.splitClassGrade(schedule.classGrade || '') || { classGrade: schedule.classGrade || '', section: '' };
+            document.getElementById('studentScheduleClass').value = parsedClass.classGrade || '';
+            window.studentSchedulingSections?.populateSectionSelect(
+                document.getElementById('studentScheduleSection'),
+                parsedClass.classGrade || '',
+                '',
+                schedule.section || parsedClass.section || 'General',
+                getScheduleData(STUDENT_SCHEDULE_KEY)
+            );
             document.getElementById('studentScheduleDay').value = schedule.day || 'Monday';
             document.getElementById('studentScheduleSubject').value = schedule.subject || '';
             document.getElementById('studentScheduleTeacher').value = schedule.teacherName || '';
@@ -227,6 +242,7 @@
             const schedule = {
                 id: editId || `SCH-${Date.now()}`,
                 classGrade: document.getElementById('studentScheduleClass').value,
+                section: document.getElementById('studentScheduleSection').value,
                 day: document.getElementById('studentScheduleDay').value,
                 subject: document.getElementById('studentScheduleSubject').value.trim(),
                 teacherName: document.getElementById('studentScheduleTeacher').value,
@@ -235,8 +251,8 @@
                 room: document.getElementById('studentScheduleRoom').value.trim(),
                 note: document.getElementById('studentScheduleNote').value.trim()
             };
-            if (!schedule.classGrade || !schedule.subject || !schedule.startTime || !schedule.endTime) {
-                showAppAlert('Class, lecture, start time, and end time are required.', 'Missing Schedule');
+            if (!schedule.classGrade || !schedule.section || !schedule.subject || !schedule.startTime || !schedule.endTime) {
+                showAppAlert('Class, section, lecture, start time, and end time are required.', 'Missing Schedule');
                 return;
             }
             const schedules = getScheduleData(STUDENT_SCHEDULE_KEY);
@@ -256,6 +272,11 @@
         });
 
         populateStudentSchedulingOptions();
+        window.studentSchedulingSections?.bindClassSectionControls({
+            classSelect: document.getElementById('studentScheduleClass'),
+            sectionSelect: document.getElementById('studentScheduleSection'),
+            include: getScheduleData(STUDENT_SCHEDULE_KEY)
+        });
         renderStudentSchedules();
         if (window.lucide) window.lucide.createIcons();
     </script>
