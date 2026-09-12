@@ -5557,20 +5557,23 @@ function getAvailableStudentSectionOptions(classGrade = '', campusName = '') {
 
     getData(STORAGE_KEY_CLASSES).forEach(addSection);
     getArrayData(STORAGE_KEY_STUDENTS).forEach(addSection);
+    ['A', 'B', 'C'].forEach((section) => {
+        if (!sections.has(section.toLowerCase())) sections.set(section.toLowerCase(), section);
+    });
     return [...sections.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
 function populateStudentSectionOptions(selectedSection = '') {
     const sectionInput = document.getElementById('studentSection');
-    const optionList = document.getElementById('studentSectionOptions');
     const classSelect = document.getElementById('classGrade');
     const campusSelect = document.getElementById('campusName');
-    if (!sectionInput || !optionList || !classSelect) return;
+    if (!sectionInput || !classSelect) return;
 
     const selected = String(selectedSection || sectionInput.value || '').trim();
     const sections = getAvailableStudentSectionOptions(classSelect.value, campusSelect?.value || '');
-    optionList.innerHTML = sections.map((section) => `<option value="${escapeHtml(section)}"></option>`).join('');
-    if (selected) sectionInput.value = selected;
+    if (selected && !sections.some((section) => section.toLowerCase() === selected.toLowerCase())) sections.push(selected);
+    sectionInput.innerHTML = '<option value="">Select Section</option>' + sections.map((section) => `<option value="${escapeHtml(section)}">Section ${escapeHtml(section)}</option>`).join('');
+    sectionInput.value = selected;
 }
 
 function bindStudentSectionSelector() {
@@ -6731,6 +6734,7 @@ function parseStudentQuickFilterValues(values) {
     const genders = [];
     const campuses = [];
     const classes = [];
+    const sections = [];
     const feeStatuses = [];
     const paidClasses = [];
     const unpaidClasses = [];
@@ -6769,6 +6773,12 @@ function parseStudentQuickFilterValues(values) {
             return;
         }
 
+        if (value.startsWith('section:')) {
+            const section = value.slice('section:'.length);
+            if (section) sections.push(section);
+            return;
+        }
+
         if (value.startsWith('fee-unpaid-class:')) {
             const className = value.slice('fee-unpaid-class:'.length);
             if (className) unpaidClasses.push(className);
@@ -6794,6 +6804,7 @@ function parseStudentQuickFilterValues(values) {
         genders,
         campuses,
         classes,
+        sections,
         feeStatuses,
         paidClasses,
         unpaidClasses,
@@ -7375,7 +7386,7 @@ function renderStudents(term = '') {
     const columnSearch = studentColumnSearchFilter;
     const activeSearchTerm = columnSearch ? columnSearch.value : term;
     const studentSearchFields = [
-        'studentCode', 'fullName', 'fatherName', 'rollNo', 'classGrade', 'campusName',
+        'studentCode', 'fullName', 'fatherName', 'rollNo', 'classGrade', 'section', 'campusName',
         'gender', 'parentPhone', 'address', 'guardianName', 'guardianContact', 'email', 'formB',
         'monthlyFee', 'remainingAmount', 'feesStatus', 'enrollmentStatus', 'username'
     ];
@@ -7386,6 +7397,7 @@ function renderStudents(term = '') {
     const genderSet = new Set(parsedFilters.genders.map((gender) => String(gender || '').toLowerCase()));
     let campusSet = new Set(parsedFilters.campuses.map((campus) => String(campus || '').toLowerCase()));
     const classSet = new Set(parsedFilters.classes.map((className) => String(className || '').toLowerCase()));
+    const sectionSet = new Set(parsedFilters.sections.map((section) => String(section || '').toLowerCase()));
     const feeStatusSet = new Set(parsedFilters.feeStatuses.map((status) => String(status || '').toLowerCase()));
     const paidClassSet = new Set(parsedFilters.paidClasses.map((className) => String(className || '').toLowerCase()));
     const unpaidClassSet = new Set(parsedFilters.unpaidClasses.map((className) => String(className || '').toLowerCase()));
@@ -7413,6 +7425,7 @@ function renderStudents(term = '') {
         (genderSet.size === 0 || genderSet.has(String(s.gender || '').toLowerCase())) &&
         (!requireBelow5 || isStudentBelowAge(s, 5)) &&
         (classSet.size === 0 || classSet.has(String(s.classGrade || '').toLowerCase())) &&
+        (sectionSet.size === 0 || sectionSet.has(String(s.section || 'General').toLowerCase())) &&
         (campusSet.size === 0 || campusSet.has(normalizeCampusFilterValue(getRecordCampusName(s)))) &&
         (feeStatusSet.size === 0 || Array.from(feeStatusSet).some((status) => (
             status === 'unpaid'
@@ -8254,6 +8267,7 @@ function populateStudentQuickFilterOptions() {
 
     const students = getArrayData(STORAGE_KEY_STUDENTS);
     const classMap = new Map();
+    const sectionMap = new Map();
 
     [
         ...DEFAULT_STUDENT_CLASS_ORDER,
@@ -8268,10 +8282,16 @@ function populateStudentQuickFilterOptions() {
         });
 
     const classes = Array.from(classMap.values()).sort(compareStudentClassNames);
+    students.forEach((student) => {
+        const section = String(student?.section || 'General').trim() || 'General';
+        if (!sectionMap.has(section.toLowerCase())) sectionMap.set(section.toLowerCase(), section);
+    });
+    const sections = Array.from(sectionMap.values()).sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
     const performanceClassFilter = window.location.hash === '#status';
     const signature = [
         performanceClassFilter ? 'filters:v6-performance-class-list' : 'filters:v5-simple-student-lists',
-        `classes:${classes.map((name) => String(name || '').toLowerCase()).join('|')}`
+        `classes:${classes.map((name) => String(name || '').toLowerCase()).join('|')}`,
+        `sections:${sections.map((name) => String(name || '').toLowerCase()).join('|')}`
     ].join('||');
     const needsRebuild = quickFilter.dataset.signature !== signature || !quickFilter.options.length;
 
@@ -8290,6 +8310,18 @@ function populateStudentQuickFilterOptions() {
                 classGroup.appendChild(option);
             });
             quickFilter.appendChild(classGroup);
+        }
+
+        if (!performanceClassFilter && sections.length) {
+            const sectionGroup = document.createElement('optgroup');
+            sectionGroup.label = 'Section Wise List';
+            sections.forEach((section) => {
+                const option = document.createElement('option');
+                option.value = `section:${section}`;
+                option.textContent = `Section ${section}`;
+                sectionGroup.appendChild(option);
+            });
+            quickFilter.appendChild(sectionGroup);
         }
 
         quickFilter.dataset.signature = signature;

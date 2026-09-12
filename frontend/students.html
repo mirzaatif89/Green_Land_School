@@ -921,19 +921,20 @@
         .student-table-container::-webkit-scrollbar { display: none !important; height: 0 !important; }
         #studentsTable { width: 100% !important; min-width: 0 !important; max-width: 100% !important; table-layout: fixed !important; }
         #studentsTable th, #studentsTable td { min-width: 0 !important; width: auto !important; padding: .62rem .5rem !important; font-size: .76rem !important; }
-        #studentsTable th:nth-child(1), #studentsTable td:nth-child(1) { width: 9% !important; }
-        #studentsTable th:nth-child(2), #studentsTable td:nth-child(2) { width: 18% !important; }
-        #studentsTable th:nth-child(3), #studentsTable td:nth-child(3) { width: 17% !important; }
-        #studentsTable th:nth-child(4), #studentsTable td:nth-child(4) { width: 11% !important; }
-        #studentsTable th:nth-child(5), #studentsTable td:nth-child(5) { width: 11% !important; }
-        #studentsTable th:nth-child(6), #studentsTable td:nth-child(6) { width: 12% !important; }
-        #studentsTable th:nth-child(7), #studentsTable td:nth-child(7) { width: 9% !important; }
-        #studentsTable th:nth-child(8), #studentsTable td:nth-child(8) { width: 10% !important; }
-        #studentsTable th:nth-child(9), #studentsTable td:nth-child(9) { width: 12% !important; min-width: 92px !important; overflow: visible !important; text-overflow: clip !important; }
+        #studentsTable th:nth-child(1), #studentsTable td:nth-child(1) { width: 8% !important; }
+        #studentsTable th:nth-child(2), #studentsTable td:nth-child(2) { width: 15% !important; }
+        #studentsTable th:nth-child(3), #studentsTable td:nth-child(3) { width: 14% !important; }
+        #studentsTable th:nth-child(4), #studentsTable td:nth-child(4) { width: 8% !important; }
+        #studentsTable th:nth-child(5), #studentsTable td:nth-child(5) { width: 10% !important; }
+        #studentsTable th:nth-child(6), #studentsTable td:nth-child(6) { width: 8% !important; }
+        #studentsTable th:nth-child(7), #studentsTable td:nth-child(7) { width: 10% !important; }
+        #studentsTable th:nth-child(8), #studentsTable td:nth-child(8) { width: 7% !important; }
+        #studentsTable th:nth-child(9), #studentsTable td:nth-child(9) { width: 9% !important; }
+        #studentsTable th:nth-child(10), #studentsTable td:nth-child(10) { width: 11% !important; min-width: 92px !important; overflow: visible !important; text-overflow: clip !important; }
         #studentsTable th, #studentsTable td { overflow: hidden !important; text-overflow: ellipsis !important; }
-        #studentsTable tbody, #studentsTable tr, #studentsTable td:nth-child(9), #studentsTable td:nth-child(9) .table-action-wrap { overflow: visible !important; }
+        #studentsTable tbody, #studentsTable tr, #studentsTable td:nth-child(10), #studentsTable td:nth-child(10) .table-action-wrap { overflow: visible !important; }
         body.students-status-view .student-table-container { overflow: visible !important; }
-        #studentsTable td:nth-child(9) { position: relative; z-index: 2; }
+        #studentsTable td:nth-child(10) { position: relative; z-index: 2; }
 
         #studentsTable .status-badge {
             display: inline-flex;
@@ -1298,9 +1299,10 @@
                         </div>
                         <div class="input-group">
                             <label>Section</label>
-                            <input type="text" id="studentSection" list="studentSectionOptions" required
-                                placeholder="e.g. A">
-                            <datalist id="studentSectionOptions"></datalist>
+                            <select id="studentSection" required
+                                style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background-color: #f8fafc;">
+                                <option value="">Select Section</option>
+                            </select>
                         </div>
                         <div class="input-group">
                             <label>Monthly Fee (PKR)</label>

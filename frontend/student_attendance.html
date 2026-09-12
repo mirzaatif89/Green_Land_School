@@ -18,6 +18,7 @@
         .attendance-filter.campus-filter { width: 225px; padding-left: 0.75rem; padding-right: 0.75rem; }
         .attendance-filter.campus-filter select { padding-left: 0.75rem; padding-right: 2rem; white-space: nowrap; }
         .attendance-filter.wide { width: 190px; }
+        .attendance-filter.section-filter { width: 195px; }
         .attendance-filter.status-filter { width: 175px; }
         .attendance-filter label { display:block; margin-bottom:0.3rem; font-size:0.8rem; font-weight:600; color:var(--text-secondary); }
         .attendance-filter input,
@@ -52,15 +53,17 @@
         .table-container th,
         .table-container td { padding: 0.62rem 0.65rem; vertical-align: middle; overflow-wrap: anywhere; }
         .table-container th:nth-child(1),
-        .table-container td:nth-child(1) { width: 24%; }
+        .table-container td:nth-child(1) { width: 20%; }
         .table-container th:nth-child(2),
-        .table-container td:nth-child(2) { width: 14%; }
+        .table-container td:nth-child(2) { width: 13%; }
         .table-container th:nth-child(3),
-        .table-container td:nth-child(3) { width: 17%; }
+        .table-container td:nth-child(3) { width: 11%; }
         .table-container th:nth-child(4),
-        .table-container td:nth-child(4) { width: 17%; }
+        .table-container td:nth-child(4) { width: 15%; }
         .table-container th:nth-child(5),
-        .table-container td:nth-child(5) { width: 28%; }
+        .table-container td:nth-child(5) { width: 16%; }
+        .table-container th:nth-child(6),
+        .table-container td:nth-child(6) { width: 25%; }
         .attendance-chip { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.72rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
         .chip-present { background: #dcfce7; color: #166534; }
         .chip-absent { background: #fee2e2; color: #991b1b; }
@@ -130,7 +133,7 @@
             <header class="header">
                 <div>
                     <h1>Student Attendance</h1>
-                    <p style="color: var(--text-secondary); margin-top: 0.25rem;">Select date, campus, and class first. Students will show class wise for attendance.</p>
+                    <p style="color: var(--text-secondary); margin-top: 0.25rem;">Select date, campus, class, and section first. Students will show section wise for attendance.</p>
                 </div>
             </header>
             <div class="attendance-toolbar">
@@ -155,6 +158,12 @@
                             <div class="attendance-checkbox-list" id="studentAttendanceClassOptions" role="group" aria-label="Class"></div>
                         </div>
                     </div>
+                </div>
+                <div class="attendance-filter section-filter">
+                    <label for="studentAttendanceSection">Section</label>
+                    <select id="studentAttendanceSection">
+                        <option value="all">All Sections</option>
+                    </select>
                 </div>
                 <div class="attendance-filter status-filter">
                     <label for="studentAttendancePrintStatusOptions">Print Status</label>
@@ -195,7 +204,7 @@
             <div class="attendance-save-message" id="studentAttendanceSaveMessage"></div>
             <div class="table-container">
                 <table>
-                    <thead><tr><th>Student</th><th>Class</th><th>Campus</th><th>Selected Date Status</th><th style="text-align:right;">Actions</th></tr></thead>
+                    <thead><tr><th>Student</th><th>Class</th><th>Section</th><th>Campus</th><th>Selected Date Status</th><th style="text-align:right;">Actions</th></tr></thead>
                     <tbody id="studentAttendanceTableBody"></tbody>
                 </table>
             </div>
@@ -227,12 +236,15 @@
             document.getElementById('studentAttendanceCampus').addEventListener('change', async () => {
                 setStudentAttendanceGlobalCampus(document.getElementById('studentAttendanceCampus').value || 'all');
                 populateStudentAttendanceClassFilter();
+                populateStudentAttendanceSectionFilter();
                 renderStudentAttendancePage();
             });
             document.getElementById('studentAttendanceClassOptions').addEventListener('change', async () => {
                 updateAttendanceFilterSummaries();
+                populateStudentAttendanceSectionFilter();
                 renderStudentAttendancePage();
             });
+            document.getElementById('studentAttendanceSection').addEventListener('change', renderStudentAttendancePage);
             if (window.lucide) window.lucide.createIcons();
         });
         function getStudentAttendanceStore() { return JSON.parse(localStorage.getItem(STORAGE_KEY_STUDENT_ATTENDANCE) || '{}'); }
@@ -363,6 +375,7 @@
                 campusSelect.value = campuses[0];
             }
             populateStudentAttendanceClassFilter();
+            populateStudentAttendanceSectionFilter();
         }
         function populateStudentAttendanceClassFilter() {
             const classOptions = document.getElementById('studentAttendanceClassOptions');
@@ -404,6 +417,24 @@
             setSelectedAttendanceValues('studentAttendanceClassOptions', previousValues.filter((value) => classes.some((className) => normalizeAttendanceFilterValue(className) === normalizeAttendanceFilterValue(value))));
             updateAttendanceFilterSummaries();
         }
+        function populateStudentAttendanceSectionFilter() {
+            const sectionSelect = document.getElementById('studentAttendanceSection');
+            if (!sectionSelect) return;
+            const selectedCampus = document.getElementById('studentAttendanceCampus').value;
+            const selectedClasses = getSelectedAttendanceValues('studentAttendanceClassOptions');
+            const previousSection = sectionSelect.value || 'all';
+            const sections = new Map([['a', 'A'], ['b', 'B'], ['c', 'C']]);
+            getStudentAttendanceStudents()
+                .filter((student) => !selectedCampus || normalizeAttendanceFilterValue(student.campusName || 'Main Campus') === normalizeAttendanceFilterValue(selectedCampus))
+                .filter((student) => !selectedClasses.length || selectedClasses.some((className) => normalizeAttendanceFilterValue(student.classGrade) === normalizeAttendanceFilterValue(className)))
+                .forEach((student) => {
+                    const section = String(student.section || student.classSection || 'General').trim() || 'General';
+                    if (!sections.has(normalizeAttendanceFilterValue(section))) sections.set(normalizeAttendanceFilterValue(section), section);
+                });
+            const values = Array.from(sections.values()).sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
+            sectionSelect.innerHTML = '<option value="all">All Sections</option>' + values.map((section) => `<option value="${escapeHtml(section)}">Section ${escapeHtml(section)}</option>`).join('');
+            sectionSelect.value = values.some((section) => normalizeAttendanceFilterValue(section) === normalizeAttendanceFilterValue(previousSection)) ? previousSection : 'all';
+        }
         function getStudentStatusForDate(studentId, dateKey) {
             if (isSundayDate(dateKey)) return 'Off Day';
             const records = Array.isArray(getStudentAttendanceStore()[studentId]) ? getStudentAttendanceStore()[studentId] : [];
@@ -413,11 +444,13 @@
         function getStudentsForAttendanceSelection() {
             const selectedCampus = document.getElementById('studentAttendanceCampus').value;
             const selectedClasses = getSelectedAttendanceValues('studentAttendanceClassOptions');
+            const selectedSection = document.getElementById('studentAttendanceSection').value || 'all';
             if (!selectedCampus || !selectedClasses.length) return [];
             return getStudentAttendanceStudents().filter(student => {
                 const campusName = student.campusName || 'Main Campus';
                 return normalizeAttendanceFilterValue(campusName) === normalizeAttendanceFilterValue(selectedCampus) &&
-                    selectedClasses.some((className) => normalizeAttendanceFilterValue(student.classGrade) === normalizeAttendanceFilterValue(className));
+                    selectedClasses.some((className) => normalizeAttendanceFilterValue(student.classGrade) === normalizeAttendanceFilterValue(className)) &&
+                    (selectedSection === 'all' || normalizeAttendanceFilterValue(student.section || student.classSection || 'General') === normalizeAttendanceFilterValue(selectedSection));
             });
         }
         function getFilteredStudentAttendanceRows({ includeSearch = true, statusFilter = [] } = {}) {
@@ -425,6 +458,7 @@
             const term = includeSearch ? document.getElementById('studentAttendanceSearch').value.trim().toLowerCase() : '';
             const selectedCampus = document.getElementById('studentAttendanceCampus').value;
             const selectedClasses = getSelectedAttendanceValues('studentAttendanceClassOptions');
+            const selectedSection = document.getElementById('studentAttendanceSection').value || 'all';
             const selectedStatuses = Array.isArray(statusFilter) ? statusFilter : [statusFilter].filter(Boolean);
             if (!dateKey || !selectedCampus || !selectedClasses.length) return [];
 
@@ -434,6 +468,7 @@
                 const matchesStatus = !selectedStatuses.length || selectedStatuses.includes(status);
                 return normalizeAttendanceFilterValue(campusName) === normalizeAttendanceFilterValue(selectedCampus) &&
                     selectedClasses.some((className) => normalizeAttendanceFilterValue(student.classGrade) === normalizeAttendanceFilterValue(className)) &&
+                    (selectedSection === 'all' || normalizeAttendanceFilterValue(student.section || student.classSection || 'General') === normalizeAttendanceFilterValue(selectedSection)) &&
                     (`${student.fullName || ''} ${student.fatherName || ''} ${student.studentCode || ''} ${student.rollNo || ''} ${student.classGrade || ''} ${campusName}`).toLowerCase().includes(term) &&
                     matchesStatus;
             });
@@ -527,6 +562,7 @@
             const dateKey = getSelectedStudentDateKey();
             const selectedCampus = document.getElementById('studentAttendanceCampus').value;
             const selectedClasses = getSelectedAttendanceValues('studentAttendanceClassOptions');
+            const selectedSection = document.getElementById('studentAttendanceSection').value || 'all';
             const statusFilter = getSelectedAttendanceValues('studentAttendancePrintStatusOptions');
             if (!dateKey || !selectedCampus || !selectedClasses.length) {
                 alert('Please select date, campus, and class first.');
@@ -545,6 +581,7 @@
             const printedAt = new Date().toLocaleString('en-PK', { dateStyle: 'medium', timeStyle: 'short' });
             const formattedDate = typeof formatDateForDisplay === 'function' ? formatDateForDisplay(dateKey) : dateKey;
             const classLabel = getAttendanceFilterLabel(selectedClasses, 'All Classes');
+            const sectionLabel = selectedSection === 'all' ? 'All Sections' : `Section ${selectedSection}`;
             const statusLabel = getAttendanceFilterLabel(statusFilter, 'All Status');
             const statusTotals = rows.reduce((totals, student) => {
                 const status = getStudentStatusForDate(student.id, dateKey);
@@ -562,6 +599,7 @@
                         <td>${escapeHtml(student.fullName || '-')}</td>
                         <td>${escapeHtml(student.fatherName || '-')}</td>
                         <td>${escapeHtml(student.classGrade || '-')}</td>
+                        <td>${escapeHtml(student.section || student.classSection || 'General')}</td>
                         <td>${escapeHtml(status)}</td>
                         <td>${escapeHtml(student.campusName || 'Main Campus')}</td>
                     </tr>
@@ -616,6 +654,7 @@
                         <div><strong>Date</strong>${escapeHtml(formattedDate)}</div>
                         <div><strong>Campus</strong>${escapeHtml(selectedCampus)}</div>
                         <div><strong>Class</strong>${escapeHtml(classLabel)}</div>
+                        <div><strong>Section</strong>${escapeHtml(sectionLabel)}</div>
                         <div><strong>Status</strong>${escapeHtml(statusLabel)}</div>
                         <div><strong>Total</strong>${rows.length}</div>
                         <div><strong>Printed</strong>${escapeHtml(printedAt)}</div>
@@ -634,6 +673,7 @@
                                 <th>Name</th>
                                 <th>Father Name</th>
                                 <th>Class</th>
+                                <th>Section</th>
                                 <th>Status</th>
                                 <th>Campus</th>
                             </tr>
@@ -659,14 +699,14 @@
             tbody.innerHTML = '';
 
             if (!dateKey || !selectedCampus || !selectedClasses.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="attendance-empty">Please select date, campus, and class to show students for attendance.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="attendance-empty">Please select date, campus, and class to show students for attendance.</td></tr>';
                 return;
             }
 
             const students = getFilteredStudentAttendanceRows({ statusFilter: printStatusFilter });
 
             if (!students.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="attendance-empty">No students found for the selected filters.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="attendance-empty">No students found for the selected filters.</td></tr>';
                 return;
             }
 
@@ -679,6 +719,7 @@
                 tr.innerHTML = `
                     <td>${escapeHtml(student.fullName || '-')}</td>
                     <td>${escapeHtml(student.classGrade || '-')}</td>
+                    <td>${escapeHtml(student.section || student.classSection || 'General')}</td>
                     <td>${escapeHtml(student.campusName || 'Main Campus')}</td>
                     <td><span class="attendance-chip ${statusClass}">${status}</span></td>
                     <td><div class="attendance-actions">
