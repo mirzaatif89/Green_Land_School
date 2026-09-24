@@ -3,14 +3,14 @@ const { readStore, upsertRecord } = require('../_lib/mobileStore');
 
 const defaultAboutSoftware = {
     id: 'ABOUT-SOFTWARE',
-    appName: 'Beacon Light School System',
-    schoolName: 'Beacon Light School System',
+    appName: 'Green Land Model School Jand',
+    schoolName: 'Green Land Model School Jand',
     website: process.env.SCHOOL_WEBSITE || '',
     supportEmail: process.env.SMTP_FROM_EMAIL || '',
-    supportPhone: '03174944258',
-    schoolAddress: 'Jand',
-    principalName: 'Mahmood ul Hassan',
-    description: 'Student and teacher portal APIs for Beacon Light School System.',
+    supportPhone: '+92 300 5203469',
+    schoolAddress: 'Haji Bazar Chowk, Tehsil Road Jand.',
+    principalName: 'Malik M. Tahir Suleman',
+    description: 'Student and teacher portal APIs for Green Land Model School Jand.',
     version: '1.0.0'
 };
 

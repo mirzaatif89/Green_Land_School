@@ -572,9 +572,9 @@ if (window.Capacitor?.isNativePlatform?.()) {
     function getWelcomeSchoolName() {
         try {
             const settings = JSON.parse(localStorage.getItem('eduCore_settings') || '{}') || {};
-            return String(settings.schoolName || settings.schoolTitle || 'Beacon Light School System').trim() || 'Beacon Light School System';
+            return String(settings.schoolName || settings.schoolTitle || 'Green Land Model School Jand').trim() || 'Green Land Model School Jand';
         } catch (_error) {
-            return 'Beacon Light School System';
+            return 'Green Land Model School Jand';
         }
     }
 
@@ -599,7 +599,7 @@ if (window.Capacitor?.isNativePlatform?.()) {
         if (document.getElementById('eduWelcomeOverlay')) return;
 
         const displayName = String(payload.displayName || loggedInUser?.fullName || loggedInUser?.username || 'User').trim() || 'User';
-        const schoolName = String(payload.schoolName || getWelcomeSchoolName()).trim() || 'Beacon Light School System';
+        const schoolName = String(payload.schoolName || getWelcomeSchoolName()).trim() || 'Green Land Model School Jand';
         const logoSrc = 'images/logo.jpeg';
         const overlay = document.createElement('div');
         overlay.id = 'eduWelcomeOverlay';
@@ -1214,7 +1214,7 @@ if (window.Capacitor?.isNativePlatform?.()) {
         return `
             <aside class="sidebar" data-portal-sidebar>
                 <div class="logo-section">
-                    <img class="sidebar-logo-img" src="images/logo.jpeg" alt="Beacon Light School System logo">
+                    <img class="sidebar-logo-img" src="images/logo.jpeg" alt="Green Land Model School Jand logo">
                 </div>
                 <div class="portal-sidebar-user">
                     <strong>${escapeHtml(displayName)}</strong>

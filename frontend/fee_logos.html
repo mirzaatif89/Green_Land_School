@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fee Logos - Beacon Light School System</title>
+    <title>Fee Logos - Green Land Model School Jand</title>
     <link rel="icon" type="image/png" href="images/logo.jpeg">
     <link rel="stylesheet" href="style.css?v=20260814-centered-school-name">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -29,12 +29,14 @@
         .fee-logo-note { margin-top:.8rem; color:var(--text-secondary); font-size:.85rem; line-height:1.45; }
         @media (max-width:900px){ .fee-logo-layout{ grid-template-columns:1fr; } }
     </style>
+    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <script src="school-branding.js?v=20260924"></script>
 </head>
 
 <body>
     <div class="dashboard-container">
         <aside class="sidebar">
-            <div class="logo-section"><img class="sidebar-logo-img" src="images/logo.jpeg" alt="Beacon Light School System logo"></div>
+            <div class="logo-section"><img class="sidebar-logo-img" src="images/logo.jpeg" alt="Green Land Model School Jand logo"></div>
             <nav class="nav-links">
                 <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
                 <a href="set_fee.html" class="nav-item"><i data-lucide="badge-dollar-sign"></i><span>Set Fees</span></a>
@@ -58,7 +60,7 @@
                     <form class="fee-logo-form" id="feeLogoForm">
                         <div class="fee-logo-field">
                             <label for="feeLogoSchoolName">School Name</label>
-                            <input id="feeLogoSchoolName" placeholder="Beacon Light School System">
+                            <input id="feeLogoSchoolName" placeholder="Green Land Model School Jand">
                         </div>
                         <div class="fee-logo-field">
                             <label for="feeLogoPhone">Contact Number</label>
@@ -89,7 +91,7 @@
                         <div class="fee-logo-slip-head">
                             <div class="fee-logo-slip-logo" id="feeLogoSlipLogo"><i data-lucide="school"></i></div>
                             <div>
-                                <h2 id="feeLogoPreviewName">Beacon Light School System</h2>
+                                <h2 id="feeLogoPreviewName">Green Land Model School Jand</h2>
                                 <p id="feeLogoPreviewAddress">School address</p>
                                 <div class="fee-logo-slip-phone" id="feeLogoPreviewPhone"></div>
                             </div>
@@ -108,7 +110,7 @@
         const FEE_LOGO_SETTINGS_KEY = 'eduCore_settings';
 
         function getFeeLogoSettings() {
-            const fallback = { schoolName: 'Beacon Light School System', phone: '03174944258', address: 'Jand', schoolAddress: 'Jand', logoDataUrl: '' };
+            const fallback = { schoolName: 'Green Land Model School Jand', phone: '+92 300 5203469', address: 'Jand', schoolAddress: 'Jand', logoDataUrl: '' };
             try {
                 const globalBranding = typeof getBrandingSettings === 'function' ? getBrandingSettings() : {};
                 const saved = JSON.parse(localStorage.getItem(FEE_LOGO_SETTINGS_KEY) || '{}') || {};
@@ -153,7 +155,7 @@
             const logoSrc = data.logoDataUrl || '';
             setLogoNode(document.getElementById('feeLogoPreview'), logoSrc, '96 x 96');
             setLogoNode(document.getElementById('feeLogoSlipLogo'), logoSrc, '');
-            document.getElementById('feeLogoPreviewName').textContent = data.schoolName || 'Beacon Light School System';
+            document.getElementById('feeLogoPreviewName').textContent = data.schoolName || 'Green Land Model School Jand';
             document.getElementById('feeLogoPreviewAddress').textContent = data.address || data.schoolAddress || 'School address';
             document.getElementById('feeLogoPreviewPhone').textContent = data.phone ? `Phone: ${data.phone}` : '';
             if (window.lucide) window.lucide.createIcons();
@@ -162,7 +164,7 @@
         function collectFeeLogoForm() {
             const address = document.getElementById('feeLogoAddress').value.trim();
             return {
-                schoolName: document.getElementById('feeLogoSchoolName').value.trim() || 'Beacon Light School System',
+                schoolName: document.getElementById('feeLogoSchoolName').value.trim() || 'Green Land Model School Jand',
                 phone: document.getElementById('feeLogoPhone').value.trim(),
                 address,
                 schoolAddress: address

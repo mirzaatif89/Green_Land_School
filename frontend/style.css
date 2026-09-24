@@ -447,7 +447,7 @@ ul {
 }
 
 .sidebar .logo-section::after {
-    content: "Beacon Light School\A System";
+    content: "Green Land\A Model School Jand";
     color: #ffffff;
     font-size: 0.9rem;
     font-weight: 800;
@@ -2852,7 +2852,7 @@ button {
 .student-report-menu button { display: block; width: 100%; padding: 9px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text-primary); text-align: left; cursor: pointer; }
 .student-report-menu button:hover { background: #eef8f2; color: var(--primary-color); }
 
-/* === BEACON LIGHT SIGNATURE THEME === */
+/* === Green Land SIGNATURE THEME === */
 :root {
     --primary-color: #35a56e;
     --primary-dark: #247b51;

@@ -1,0 +1,67 @@
+/* Shared Green Land identity for administration, teacher and student panels. */
+:root{--primary-color:#08643b;--primary-dark:#064d2e;--secondary-color:#60715f;--accent-color:#aed45c;--bg-color:#f4f6ee;--text-primary:#193d2b;--text-secondary:#60715f;--border-color:#dce5d5;--success-color:#087a45}
+.dashboard-container .sidebar{background:#fbfcf7;border-right:1px solid #dce5d5}
+.sidebar .logo-section{padding:20px 12px 18px;background:#f5f7eb;border-bottom:1px solid #dce5d5}
+.sidebar .logo-section::before{display:none}
+.sidebar .sidebar-logo-img{display:block;width:90px;height:90px;object-fit:contain;border-radius:16px;max-width:100%;margin:auto}
+.sidebar .logo-section::after{content:"Green Land\A Model School Jand";white-space:pre-wrap;line-height:1.45;font-size:14px;color:#08643b;letter-spacing:.025em;text-align:center}
+.sidebar .nav-item.active{background:#e6efd9;color:#065b34;border-color:#acc889;box-shadow:inset 3px 0 #08643b}
+.sidebar .nav-item:hover{background:#edf3e5;color:#08643b}
+.dashboard-container .top-header,.dashboard-container .header{border-bottom-color:#dce5d5}
+.dashboard-container .card{border:1px solid #dce5d5;box-shadow:0 4px 16px #234d2410}
+.btn-success{background:#08643b;color:#fff}.btn-success:hover{background:#064d2e}
+.login-layout{height:auto;min-height:100dvh;padding:35px 20px;background:radial-gradient(ellipse at top left,#dce9c1,transparent 60%),#f7f7ed}
+.login-card{max-width:470px;border:1px solid #d9e2cd;border-radius:22px;box-shadow:0 20px 70px #173f241a;overflow:hidden}
+.login-header{padding:25px 25px 20px;background:#f0f3e4;border-bottom:1px solid #dce5d5}
+.login-icon-circle{height:auto;width:100%;background:none;border:none;box-shadow:none;display:flex;flex-direction:column;gap:8px}
+.login-school-logo{width:120px;height:120px;object-fit:contain;border-radius:16px}
+.login-school-name{white-space:normal;width:auto;max-width:100%;font-size:17px;color:#08643b;line-height:1.4;text-shadow:none}
+.login-school-name strong{font-size:25px}.login-body{padding:28px 32px}
+.portal-signin-title{font-size:19px;line-height:1.4;text-align:center;margin:0 0 6px}.portal-signin-note{text-align:center;font-size:13px;color:#60715f;margin:0 0 25px}
+.school-home-link{display:block;text-align:center;margin-top:22px;font-size:13px;color:#08643b}
+.portal-about-content h3{margin-top:24px;color:#08643b}.portal-about-contact a{color:#08643b;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:480px){.login-body{padding:24px 20px}.login-layout{padding:20px 14px}.portal-signin-title{font-size:17px}}
+@media print{.school-home-link{display:none}}
+
+/* Refined portal theme: forest green, ivory and restrained brass accents. */
+:root{--primary-color:#17654e;--primary-dark:#104b3a;--accent-color:#c2a66f;--bg-color:#f2f5f4;--text-primary:#213c35;--text-secondary:#75857e;--border-color:#e2e9e5;--radius-md:12px;--radius-lg:18px}
+body,input,select,textarea,button{font-family:'Segoe UI',Arial,sans-serif}
+.dashboard-container .main-content{background:#f2f5f4;background-image:radial-gradient(ellipse at 95% 0%,#e5eee8 0,transparent 48%);padding:28px}
+.dashboard-container .sidebar{background:linear-gradient(165deg,#173e33 0%,#102d26 100%);color:#dbe8df;border-right:0;box-shadow:6px 0 28px #15362b12}
+.dashboard-container .sidebar .logo-section{display:flex;flex-direction:column;justify-content:center;gap:13px;padding:20px 5px 24px;margin-bottom:18px;background:transparent;border:0;border-bottom:1px solid #ffffff20;border-radius:0;box-shadow:none;flex-shrink:0}
+.dashboard-container .sidebar .sidebar-logo-img{display:block;width:76px;height:76px;max-width:76px;object-fit:contain;border-radius:20px;border:1px solid #ffffff35;box-shadow:0 5px 16px #00000018;margin:0}
+.dashboard-container .sidebar .logo-section::after{content:'Green Land\A Model School Jand';font-family:Georgia,'Times New Roman',serif;font-size:21px;line-height:1.35;font-weight:400;letter-spacing:.025em;color:#f4ecd9;white-space:pre;text-align:center;text-shadow:none}
+.dashboard-container .sidebar .nav-item,.dashboard-container .sidebar .nav-subitem{color:#c0d2c8;font-size:13px;font-weight:500;border:1px solid transparent;border-radius:10px;box-shadow:none;transition:background .18s,color .18s;transform:none}
+.dashboard-container .sidebar .nav-item{padding:12px 14px;margin-bottom:5px;min-height:44px}
+.dashboard-container .sidebar .nav-item:hover,.dashboard-container .sidebar .nav-subitem:hover{background:#ffffff0d;color:#fff;border-color:#ffffff0c;transform:none}
+.dashboard-container .sidebar .nav-item.active,.dashboard-container .sidebar .nav-subitem.active,.dashboard-container .sidebar .nav-dropdown.open>.nav-dropdown-toggle{background:#f0ead9;color:#193e31;border-color:#f0ead9;box-shadow:0 4px 12px #0000000d;font-weight:600}
+.dashboard-container .sidebar .nav-item svg,.dashboard-container .sidebar .nav-subitem svg{color:inherit;background:transparent;box-shadow:none;border:0}
+.dashboard-container .sidebar .nav-links::-webkit-scrollbar-thumb{background:#ffffff26}
+.dashboard-container .sidebar .user-profile{background:#ffffff08;border:1px solid #ffffff16;padding:13px 10px;border-radius:14px;box-shadow:none;color:#fff}
+.dashboard-container .sidebar .user-profile:hover{background:#ffffff12;margin-left:0;margin-right:0}
+.dashboard-container .sidebar .user-info h4{color:#f1f6f2;font-size:13px;font-weight:600}
+.dashboard-container .sidebar .user-info p{color:#a5bfb1;font-size:11px}
+.dashboard-container .sidebar .avatar{background:#d9c69b;color:#284335;box-shadow:none;font-weight:600}
+.dashboard-container .header{padding:0 0 22px;margin-bottom:24px;border-bottom:1px solid #dae4dd}
+.dashboard-container .header h1{font-size:29px;letter-spacing:-.045em;font-weight:650;color:#213e33}
+.dashboard-container .btn-primary,.dashboard-container .btn-success{background:#17654e;color:white;border:1px solid #17654e;box-shadow:0 4px 12px #17654e14;font-weight:600}
+.dashboard-container .btn-primary:hover,.dashboard-container .btn-success:hover{background:#104b3a;transform:none}
+.dashboard-container .btn-outline{background:#fff;border-color:#dce6df;color:#325745}
+.dashboard-container .card{background:#fff;border:1px solid #e0e8e2;box-shadow:0 5px 22px #183d2b06;border-radius:16px}
+.dashboard-container .card::before{background:none;display:none}
+.dashboard-container .card:hover{border-color:#b8cec0;box-shadow:0 8px 24px #183d2b0b;transform:translateY(-2px)}
+#dashboardStatsGrid{gap:16px;max-width:none}
+#dashboardStatsGrid .card{height:164px;padding:21px;border-radius:16px}
+#dashboardStatsGrid .card-title{font-size:12px;letter-spacing:.015em;color:#6b8075;font-weight:500;padding-right:34px;margin-bottom:13px}
+#dashboardStatsGrid .card-value{font-size:34px;line-height:1.2;letter-spacing:-.04em;font-weight:600;color:#203c30;margin-bottom:17px;font-variant-numeric:tabular-nums}
+#dashboardStatsGrid .card-trend{font-size:11px;color:#39795c;font-weight:500}
+#dashboardStatsGrid .card-icon{width:34px;height:34px;right:15px;top:17px;border-radius:11px;background:#edf4ef;color:#317051;box-shadow:none}
+.dashboard-container table thead th{background:#edf2ee;color:#516a5b;border-bottom:1px solid #dce6de;font-weight:600}
+.dashboard-container input:not([type='checkbox']):not([type='radio']),.dashboard-container select,.dashboard-container textarea{border-color:#d9e3dc;border-radius:9px;color:#2d493a}
+.dashboard-container input:focus,.dashboard-container select:focus,.dashboard-container textarea:focus{outline-color:#579e7c;border-color:#579e7c;box-shadow:0 0 0 3px #17654e10}
+.sidebar a:focus-visible{outline:2px solid #e0c796;outline-offset:2px}
+.login-school-name{font-family:Georgia,'Times New Roman',serif;font-weight:400}.login-school-name strong{font-weight:400;font-size:30px}
+@media(max-width:768px){.dashboard-container .main-content{padding:18px}.dashboard-container .header{gap:14px;flex-wrap:wrap}.dashboard-container .header h1{font-size:25px}#dashboardStatsGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#dashboardStatsGrid .card{height:150px;padding:16px}#dashboardStatsGrid .card-value{font-size:29px}#dashboardStatsGrid .card-title{font-size:11px}}
+@media(max-width:380px){#dashboardStatsGrid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.dashboard-container .card:hover{transform:none}.dashboard-container .sidebar .nav-item{transition:none}}
+@media print{.dashboard-container .main-content{background:white}.dashboard-container .card{box-shadow:none}}

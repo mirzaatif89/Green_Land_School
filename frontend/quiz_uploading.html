@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Uploading - Beacon Light School System</title>
+    <title>Quiz Uploading - Green Land Model School Jand</title>
     <link rel="icon" type="image/png" href="images/logo.jpeg">
     <link rel="stylesheet" href="style.css?v=20260814-centered-school-name">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -58,12 +58,14 @@
         .quiz-modal-actions { position:sticky; bottom:0; display:flex; justify-content:flex-end; gap:.75rem; padding:1rem 1.25rem; border-top:1px solid #d9ece9; background:#fff; }
         .btn-secondary { min-height:40px; border:1px solid #cbd5e1; border-radius:10px; padding:.55rem .9rem; background:#fff; color:#334155; font-weight:800; cursor:pointer; }
     </style>
+    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <script src="school-branding.js?v=20260924"></script>
 </head>
 
 <body>
     <div class="dashboard-container">
         <aside class="sidebar">
-            <div class="logo-section"><img class="sidebar-logo-img" src="images/logo.jpeg" alt="Beacon Light School System logo"></div>
+            <div class="logo-section"><img class="sidebar-logo-img" src="images/logo.jpeg" alt="Green Land Model School Jand logo"></div>
             <nav class="nav-links">
                 <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
                 <a href="students.html" class="nav-item"><i data-lucide="users"></i><span>Students</span></a>
@@ -475,7 +477,7 @@
             const rows = getFilteredQuizSubmissionRows();
             if (!rows.length) { showAppAlert('No submitted quiz found for selected filters.', 'No Results'); return; }
             const branding = typeof getBrandingSettings === 'function' ? getBrandingSettings() : {};
-            const schoolName = branding.schoolName || branding.schoolTitle || 'Beacon Light School System';
+            const schoolName = branding.schoolName || branding.schoolTitle || 'Green Land Model School Jand';
             const logoSrc = branding.logoDataUrl || 'images/logo.jpeg';
             const selectedCampus = document.getElementById('quizResultCampusFilter')?.value || 'All Campus';
             const selectedClass = document.getElementById('quizResultClassFilter')?.value || 'All Class';

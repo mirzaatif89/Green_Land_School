@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Fees - Beacon Light School System management</title>
+    <title>Student Fees - Green Land Model School Jand management</title>
     <link rel="icon" type="image/png" href="images/logo.jpeg">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -742,6 +742,8 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <script src="school-branding.js?v=20260924"></script>
 </head>
 
 <body>
@@ -750,7 +752,7 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo-section">
-                <img class="sidebar-logo-img" src="images/logo.jpeg" alt="Beacon Light School System logo">
+                <img class="sidebar-logo-img" src="images/logo.jpeg" alt="Green Land Model School Jand logo">
             </div>
 
             <nav class="nav-links">
@@ -1712,7 +1714,7 @@
             const dateLabel = new Date(`${paymentDate}T12:00:00`).toLocaleDateString('en-GB');
             const pages = receipts.map(({ student, result }) => `
                 <section class="challan">
-                    <div class="school">Beacon Light School System</div>
+                    <div class="school">Green Land Model School Jand</div>
                     <div class="title">FEE PAYMENT RECEIPT - PAID</div>
                     <div class="paid">PAID</div>
                     <table>
@@ -2107,7 +2109,7 @@
             const students = getFeePrintFilteredStudents();
             const branding = typeof getBrandingSettings === 'function' ? getBrandingSettings() : {};
             const rawSchoolName = String(branding.schoolName || branding.schoolTitle || '').trim();
-            const schoolName = rawSchoolName || 'Beacon Light School System';
+            const schoolName = rawSchoolName || 'Green Land Model School Jand';
             const campusLabel = getSelectedFeeCampus() === 'all' ? 'All Campuses' : getSelectedFeeCampusLabel();
             const classLabel = getFeeClassLabelById(classId);
             const selectedSection = getSelectedFeeSection();

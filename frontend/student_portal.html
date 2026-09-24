@@ -2388,11 +2388,13 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <script src="school-branding.js?v=20260924"></script>
 </head>
 
 <body>
     <header class="portal-header">
-        <img class="portal-logo" src="images/logo.jpeg" alt="Beacon Light School System logo">
+        <img class="portal-logo" src="images/logo.jpeg" alt="Green Land Model School Jand logo">
         <button class="portal-menu-btn" type="button" onclick="logout()" title="Logout" aria-label="Logout">
             <i data-lucide="log-out" width="16"></i>
             Logout
@@ -3024,14 +3026,14 @@
         function getPortalBrandingSettings() {
             try {
                 return {
-                    schoolName: 'Beacon Light School System',
-                    schoolTitle: 'Beacon Light School System',
-                    phone: '03174944258', address: 'Jand', schoolAddress: 'Jand',
+                    schoolName: 'Green Land Model School Jand',
+                    schoolTitle: 'Green Land Model School Jand',
+                    phone: '+92 300 5203469', address: 'Jand', schoolAddress: 'Jand',
                     logoDataUrl: '',
                     ...(JSON.parse(localStorage.getItem(STORAGE_KEY_SETTINGS) || '{}') || {})
                 };
             } catch (_error) {
-                return { schoolName: 'Beacon Light School System', schoolTitle: 'Beacon Light School System', phone: '03174944258', address: 'Jand', schoolAddress: 'Jand', logoDataUrl: '' };
+                return { schoolName: 'Green Land Model School Jand', schoolTitle: 'Green Land Model School Jand', phone: '+92 300 5203469', address: 'Jand', schoolAddress: 'Jand', logoDataUrl: '' };
             }
         }
 
@@ -3195,7 +3197,7 @@
             <\/thead>
             <tbody>${subjectBlocks}<\/tbody>
         <\/table>
-        <div class="footer">Beacon Light School System<\/div>
+        <div class="footer">Green Land Model School Jand<\/div>
     <\/main>
 <\/body>
 <\/html>`;
@@ -5356,7 +5358,7 @@
         function getStudentBranchContactDetails(_campusName) {
             return {
                 campusLabel: 'Jand',
-                contactLine: 'Address: Jand | Phone: 03174944258'
+                contactLine: 'Address: Jand | Phone: +92 300 5203469'
             };
         }
 
@@ -5655,7 +5657,7 @@
                     <body>
                         <div class="print-header">
                             <img class="print-logo" src="${escapeHtml(logoSrc)}" alt="School logo">
-                            <div><h2>${escapeHtml(branding.schoolName || 'Beacon Light School System')}</h2><p>${escapeHtml(subject)} Performance</p></div>
+                            <div><h2>${escapeHtml(branding.schoolName || 'Green Land Model School Jand')}</h2><p>${escapeHtml(subject)} Performance</p></div>
                         </div>
                         <div class="meta">
                             <div class="box"><strong>Name:</strong> ${escapeHtml(student.fullName || loggedInUser.fullName || '-')}</div>

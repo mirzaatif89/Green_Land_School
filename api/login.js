@@ -10,10 +10,7 @@ const {
 } = require('./_lib/services');
 
 async function resolveAdminCredentials(db) {
-    const fallback = {
-        username: process.env.ADMIN_USERNAME || 'admin',
-        password: process.env.ADMIN_PASSWORD || 'admin123'
-    };
+    const fallback = require('./_lib/adminConfig').getAdminCredentialsFromEnv();
 
     const appSettingModel = db?.models?.AppSetting;
     if (!appSettingModel) return fallback;

@@ -952,10 +952,7 @@ async function enforceActionPermission(req, res, moduleKey, actionKey) {
 }
 
 function getDefaultAdminCredentials() {
-    return {
-        username: process.env.ADMIN_USERNAME || 'admin',
-        password: process.env.ADMIN_PASSWORD || 'admin123'
-    };
+    return require('../api/_lib/adminConfig').getAdminCredentialsFromEnv();
 }
 
 function readAdminCredentials() {
@@ -3312,7 +3309,7 @@ app.post('/api/email/execute-all', authenticateToken, async (req, res) => {
             paidByStudent.set(studentId, (paidByStudent.get(studentId) || 0) + (Number(payment.amount || 0) || 0));
         });
 
-        const schoolName = getSmtpConfig().fromName || 'Beacon Light School System';
+        const schoolName = getSmtpConfig().fromName || 'Green Land Model School Jand';
         const result = { pendingFees: { sent: 0, failed: 0, skipped: 0, errors: [] }, birthdays: { sent: 0, failed: 0 }, specialNotices: { sent: 0, failed: 0 } };
 
         for (const row of students) {
@@ -3566,14 +3563,14 @@ app.get('/api/about-software', (_req, res) => {
         success: true,
         aboutSoftware: records[0] || {
             id: 'ABOUT-SOFTWARE',
-            appName: 'Beacon Light School System',
-            schoolName: 'Beacon Light School System',
+            appName: 'Green Land Model School Jand',
+            schoolName: 'Green Land Model School Jand',
             website: process.env.SCHOOL_WEBSITE || '',
             supportEmail: process.env.SMTP_FROM_EMAIL || '',
-            supportPhone: '03174944258',
-            schoolAddress: 'Jand',
-            principalName: 'Mahmood ul Hassan',
-            description: 'Student and teacher portal APIs for Beacon Light School System.',
+            supportPhone: '+92 300 5203469',
+            schoolAddress: 'Haji Bazar Chowk, Tehsil Road Jand.',
+            principalName: 'Malik M. Tahir Suleman',
+            description: 'Student and teacher portal APIs for Green Land Model School Jand.',
             version: '1.0.0'
         }
     });
@@ -3830,7 +3827,7 @@ function buildLocalAiAnswer(question = '', context = {}) {
 
 async function callOpenAiForSchoolAnswer(message, context) {
     const prompt = [
-        'You are Beacon Light School System portal assistant.',
+        'You are Green Land Model School Jand portal assistant.',
         'Answer in the same language style as the user. Most users write Roman Urdu.',
         'Use only the provided school system context. If exact data is not present, say that it is not available in the current system snapshot.',
         'Do not expose passwords, secrets, API keys, or hidden implementation details.',

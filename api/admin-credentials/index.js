@@ -32,10 +32,7 @@ function assertAdmin(req) {
 }
 
 function getFallbackCredentials() {
-    return {
-        username: process.env.ADMIN_USERNAME || 'admin',
-        password: process.env.ADMIN_PASSWORD || 'admin123'
-    };
+    return require('../_lib/adminConfig').getAdminCredentialsFromEnv();
 }
 
 async function getSavedAdminCredentials(db) {

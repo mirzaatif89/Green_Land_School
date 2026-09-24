@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Certificate - Beacon Light School System</title>
+    <title>Certificate - Green Land Model School Jand</title>
     <link rel="stylesheet" href="style.css?v=20260814-centered-school-name">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -31,12 +31,14 @@
             #certificatePreview { position:absolute; inset:0; margin:0; max-width:none; border-width:8px; }
         }
     </style>
+    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <script src="school-branding.js?v=20260924"></script>
 </head>
 
 <body>
     <div class="dashboard-container">
         <aside class="sidebar">
-            <div class="logo-section"><img class="sidebar-logo-img" src="images/logo.jpeg" alt="Beacon Light School System logo"></div>
+            <div class="logo-section"><img class="sidebar-logo-img" src="images/logo.jpeg" alt="Green Land Model School Jand logo"></div>
             <nav class="nav-links">
                 <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
                 <a href="students.html" class="nav-item"><i data-lucide="users"></i><span>Students</span></a>
@@ -90,7 +92,7 @@
         function renderCertificatePreview() {
             const branding = typeof getBrandingSettings === 'function' ? getBrandingSettings() : {};
             const logoSrc = typeof getBrandingLogoSrc === 'function' ? getBrandingLogoSrc() : 'images/logo.jpeg';
-            const schoolName = 'Beacon Light School System';
+            const schoolName = 'Green Land Model School Jand';
             const dateValue = certificateDate.value ? new Date(certificateDate.value).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
             certificatePreview.innerHTML = `
                 <div class="certificate-head">

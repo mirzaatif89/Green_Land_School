@@ -27,7 +27,7 @@ module.exports = createHandler({
             paidByStudent.set(studentId, (paidByStudent.get(studentId) || 0) + (Number(payment.amount || 0) || 0));
         });
 
-        const schoolName = getSmtpConfig().fromName || 'Beacon Light School System';
+        const schoolName = getSmtpConfig().fromName || 'Green Land Model School Jand';
         const result = { pendingFees: { sent: 0, failed: 0, skipped: 0, errors: [] }, birthdays: { sent: 0, failed: 0 }, specialNotices: { sent: 0, failed: 0 } };
 
         for (const row of students) {

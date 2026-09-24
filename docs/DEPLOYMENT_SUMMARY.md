@@ -94,5 +94,5 @@ https://your-backend.onrender.com
 
 ---
 
-Created by American Lyceum International School Sharaqpur Campus
+Created by Green Land Model School Jand
 Last updated: 2026

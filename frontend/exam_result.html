@@ -4,16 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Result - Beacon Light School System</title>
+    <title>Exam Result - Green Land Model School Jand</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <script src="school-branding.js?v=20260924"></script>
 </head>
 
 <body>
     <div class="dashboard-container">
         <aside class="sidebar">
-            <div class="logo-section" aria-label="Beacon Light School System"></div>
+            <div class="logo-section" aria-label="Green Land Model School Jand"></div>
 
             <nav class="nav-links">
                 <a href="dashboard.html" class="nav-item">
@@ -148,7 +150,7 @@
                             <div class="result-form-section">
                                 <h4>Date Sheet Header</h4>
                                 <div class="result-form-fields">
-                                    <label>School Name<input type="text" id="dateSheetSchoolName" value="Beacon Light School System" placeholder="Enter school name"></label>
+                                    <label>School Name<input type="text" id="dateSheetSchoolName" value="Green Land Model School Jand" placeholder="Enter school name"></label>
                                     <label>Exam Title<input type="text" id="dateSheetExamTitle" placeholder="Enter exam title"></label>
                                     <label>Session<input type="text" id="dateSheetSession" placeholder="Enter session"></label>
                                     <label>Target Class / Group<input type="text" id="dateSheetClassGroup" placeholder="Enter class / group"></label>
@@ -190,7 +192,7 @@
                                     <div class="date-sheet-header-top">
                                         <img class="date-sheet-logo" src="images/logo.jpeg" alt="School logo">
                                         <div>
-                                            <h2 id="previewDateSheetSchoolName">Beacon Light School System</h2>
+                                            <h2 id="previewDateSheetSchoolName">Green Land Model School Jand</h2>
                                             <p id="previewDateSheetCampus"></p>
                                         </div>
                                         <img class="date-sheet-logo" src="images/logo.jpeg" alt="School logo">
@@ -253,7 +255,7 @@
                         <div class="result-form-section">
                             <h4>School Header</h4>
                             <div class="result-form-fields">
-                                <label>School Name<input type="text" id="schoolName" value="Beacon Light School System" placeholder="Enter school name"></label>
+                                <label>School Name<input type="text" id="schoolName" value="Green Land Model School Jand" placeholder="Enter school name"></label>
                                 <label>Campus / Branch<select id="campusName"></select></label>
                                 <label>Contact Line<input type="text" id="schoolContact" placeholder="Enter contact line"></label>
                                 <label>Term Title<input type="text" id="termTitle" placeholder="Enter term title"></label>
@@ -262,7 +264,7 @@
                                     <i data-lucide="shield-check" size="18"></i>
                                     <div>
                                         <strong>Fixed Result Card Logo</strong>
-                                        <span>The Beacon Light School System logo at images/logo.jpeg will print on every result card.</span>
+                                        <span>The Green Land Model School Jand logo at images/logo.jpeg will print on every result card.</span>
                                     </div>
                                 </div>
                             </div>
@@ -345,7 +347,7 @@
                             <div class="result-card-topbar">
                                 <div class="result-logo-box"><img id="previewLeftLogo" alt="Left school logo"></div>
                                 <div class="result-school-center">
-                                    <h2 id="previewSchoolName">Beacon Light School System</h2>
+                                    <h2 id="previewSchoolName">Green Land Model School Jand</h2>
                                     <p id="previewCampusName"></p>
                                     <p id="previewSchoolContact"></p>
                                 </div>
@@ -1747,14 +1749,14 @@
         const STATIC_RESULT_LOGO = 'images/logo.jpeg';
 
         function isLegacyDemoDateSheetState(saved = {}) {
-            return (saved.dateSheetSchoolName === 'Beacon Light School System' || saved.dateSheetSchoolName === 'Beacon Light School System') &&
+            return (saved.dateSheetSchoolName === 'Green Land Model School Jand' || saved.dateSheetSchoolName === 'Green Land Model School Jand') &&
                 saved.dateSheetExamTitle === 'Mid Term Examination 2026' &&
                 saved.dateSheetSession === '2025-26' &&
                 saved.dateSheetClassGroup === 'Grade 5 / Section A';
         }
 
         function isLegacyDemoResultState(saved = {}) {
-            return (saved.schoolName === 'Beacon Light School System' || saved.schoolName === 'Beacon Light School System') &&
+            return (saved.schoolName === 'Green Land Model School Jand' || saved.schoolName === 'Green Land Model School Jand') &&
                 saved.studentName === 'Muhammad Ali' &&
                 saved.fatherName === 'Ahmed Ali' &&
                 saved.termTitle === '3rd Term 2025-26';
@@ -1955,7 +1957,7 @@
 
         function refreshDateSheetPreview() {
             const rows = readScheduleRows();
-            document.getElementById('previewDateSheetSchoolName').textContent = document.getElementById('dateSheetSchoolName').value || 'Beacon Light School System';
+            document.getElementById('previewDateSheetSchoolName').textContent = document.getElementById('dateSheetSchoolName').value || 'Green Land Model School Jand';
             document.getElementById('previewDateSheetExamTitle').textContent = document.getElementById('dateSheetExamTitle').value || '';
             document.getElementById('previewDateSheetSession').textContent = document.getElementById('dateSheetSession').value || '';
             document.getElementById('previewDateSheetClassGroup').textContent = document.getElementById('dateSheetClassGroup').value || '';
@@ -2401,7 +2403,7 @@
         const RESULT_BRANCH_CONTACTS = {
             main: {
                 campusLabel: 'Jand',
-                contactLine: 'Address: Jand | Phone: 03174944258'
+                contactLine: 'Address: Jand | Phone: +92 300 5203469'
             }
         };
 
@@ -2548,7 +2550,7 @@
             const subjects = readSubjectRows();
             const behaviors = readBehaviorRows();
 
-            document.getElementById('previewSchoolName').textContent = document.getElementById('schoolName').value || 'Beacon Light School System';
+            document.getElementById('previewSchoolName').textContent = document.getElementById('schoolName').value || 'Green Land Model School Jand';
             document.getElementById('previewCampusName').textContent = document.getElementById('campusName').value || '';
             document.getElementById('previewSchoolContact').textContent = document.getElementById('schoolContact').value || '';
             document.getElementById('previewTermTitle').textContent = document.getElementById('termTitle').value || '';

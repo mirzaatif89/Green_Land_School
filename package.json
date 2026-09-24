@@ -1,7 +1,7 @@
 {
-  "name": "beacon-light-school-system",
+  "name": "green-land-model-school-jand",
   "version": "1.0.0",
-  "description": "Real-time SQL backend for Beacon Light School System",
+  "description": "Real-time SQL backend for Green Land Model School Jand",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",

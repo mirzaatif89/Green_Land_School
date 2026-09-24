@@ -1,11 +1,12 @@
-const CACHE_NAME = 'american-lyceum-mobile-v1';
+const CACHE_NAME = 'green-land-mobile-v2';
 const PRECACHE_URLS = [
     '/mobile.html',
     '/mobile.css?v=20260730-animated-shell-1',
     '/mobile.js?v=20260730-animated-shell-1',
     '/mobile.webmanifest',
     '/images/logo.jpeg',
-    '/images/mobile_app_icon.jpeg'
+    '/school-theme.css?v=20260924-refined',
+    '/school-branding.js?v=20260924'
 ];
 
 self.addEventListener('install', (event) => {

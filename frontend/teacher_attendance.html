@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teacher Attendance - Beacon Light School System</title>
+    <title>Teacher Attendance - Green Land Model School Jand</title>
     <link rel="icon" type="image/png" href="images/logo.jpeg">
     <link rel="stylesheet" href="style.css?v=20260814-centered-school-name">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -95,12 +95,14 @@
             .table-container table { min-width: 660px; }
         }
     </style>
+    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <script src="school-branding.js?v=20260924"></script>
 </head>
 <body>
     <div class="dashboard-container">
         <aside class="sidebar">
             <div class="logo-section">
-                <img class="sidebar-logo-img" src="images/logo.jpeg" alt="Beacon Light School System logo">
+                <img class="sidebar-logo-img" src="images/logo.jpeg" alt="Green Land Model School Jand logo">
             </div>
             <nav class="nav-links">
                 <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
@@ -500,7 +502,7 @@
             }
 
             const branding = typeof getBrandingSettings === 'function' ? getBrandingSettings() : {};
-            const schoolName = branding.schoolName || branding.schoolTitle || 'Beacon Light School System';
+            const schoolName = branding.schoolName || branding.schoolTitle || 'Green Land Model School Jand';
             const logoSrc = branding.logoDataUrl || 'images/logo.jpeg';
             const printedAt = new Date().toLocaleString('en-PK', { dateStyle: 'medium', timeStyle: 'short' });
             const formattedDate = typeof formatDateForDisplay === 'function' ? formatDateForDisplay(dateKey) : dateKey;

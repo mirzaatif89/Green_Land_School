@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Assignments - Beacon Light School System</title>
+    <title>Upload Assignments - Green Land Model School Jand</title>
     <link rel="icon" type="image/png" href="images/logo.jpeg">
     <link rel="stylesheet" href="style.css?v=20260814-centered-school-name">
     <link rel="stylesheet" href="student_schedule_theme.css">
@@ -50,12 +50,14 @@
         @media (max-width:800px) { .assignment-list-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
         @media (max-width:520px) { .assignment-list-filters { grid-template-columns:1fr; } }
     </style>
+    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <script src="school-branding.js?v=20260924"></script>
 </head>
 
 <body>
     <div class="dashboard-container">
         <aside class="sidebar">
-            <div class="logo-section"><img class="sidebar-logo-img" src="images/logo.jpeg" alt="Beacon Light School System logo"></div>
+            <div class="logo-section"><img class="sidebar-logo-img" src="images/logo.jpeg" alt="Green Land Model School Jand logo"></div>
             <nav class="nav-links">
                 <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
                 <a href="students.html" class="nav-item"><i data-lucide="users"></i><span>Students</span></a>
@@ -213,7 +215,7 @@
             });
             const win = window.open('', '_blank');
             if (!win) return;
-            win.document.write(`<html><head><title>Assignment Report</title><style>body{font-family:Arial,sans-serif;color:#173b2d;padding:32px}header{text-align:center;border-bottom:2px solid #238b5b;padding-bottom:16px;margin-bottom:24px}header img{width:70px;height:70px;object-fit:contain}header h1{margin:8px 0 0;font-size:24px}header h2{margin:8px 0 0;font-size:20px;color:#238b5b}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #b9d8c8;padding:9px;text-align:left}th{background:#eaf6ef} .meta{margin:8px 0;color:#526b5e}</style></head><body><header><img src="images/logo.jpeg" alt="School Logo"><h1>Beacon Light School System</h1><h2>Assignment Report</h2></header><div class="meta">Campus: ${esc(campus || 'All Campuses')} | Class: ${esc(className || 'All Classes')} | Section: ${esc(section || 'All Sections')} | Subject: ${esc(subject || 'All Subjects')} | Status: ${esc(statusFilter || 'All Statuses')}</div><table><thead><tr><th>Student Name</th><th>Status</th><th>Submitted Date</th><th>Marks</th><th>Result</th></tr></thead><tbody>${rows.join('') || '<tr><td colspan="5">No students found for selected filters.</td></tr>'}</tbody></table></body></html>`);
+            win.document.write(`<html><head><title>Assignment Report</title><style>body{font-family:Arial,sans-serif;color:#173b2d;padding:32px}header{text-align:center;border-bottom:2px solid #238b5b;padding-bottom:16px;margin-bottom:24px}header img{width:70px;height:70px;object-fit:contain}header h1{margin:8px 0 0;font-size:24px}header h2{margin:8px 0 0;font-size:20px;color:#238b5b}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #b9d8c8;padding:9px;text-align:left}th{background:#eaf6ef} .meta{margin:8px 0;color:#526b5e}</style></head><body><header><img src="images/logo.jpeg" alt="School Logo"><h1>Green Land Model School Jand</h1><h2>Assignment Report</h2></header><div class="meta">Campus: ${esc(campus || 'All Campuses')} | Class: ${esc(className || 'All Classes')} | Section: ${esc(section || 'All Sections')} | Subject: ${esc(subject || 'All Subjects')} | Status: ${esc(statusFilter || 'All Statuses')}</div><table><thead><tr><th>Student Name</th><th>Status</th><th>Submitted Date</th><th>Marks</th><th>Result</th></tr></thead><tbody>${rows.join('') || '<tr><td colspan="5">No students found for selected filters.</td></tr>'}</tbody></table></body></html>`);
             win.document.close();
             win.focus();
             win.print();
