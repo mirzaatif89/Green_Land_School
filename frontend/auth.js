@@ -798,7 +798,7 @@ if (window.Capacitor?.isNativePlatform?.()) {
                 { type: 'link', page: 'notifications.html', label: 'Notification', icon: 'bell-ring' },
                 { type: 'link', page: 'classes.html', label: 'Classes', icon: 'school' },
                 { type: 'link', page: 'students.html', label: 'Students', icon: 'users' },
-                { type: 'link', page: 'students.html', hash: '#status', label: 'Performances', icon: 'trending-up' },
+                { type: 'link', page: 'students.html', hash: '#status', label: 'Examinations Report', icon: 'trending-up' },
                 { type: 'link', page: 'teachers.html', label: 'Teachers', icon: 'book-open' },
                 { type: 'link', page: 'staff.html', label: 'Staff', icon: 'briefcase' },
                 { type: 'link', page: 'families.html', label: 'Families', icon: 'home' },

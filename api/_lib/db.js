@@ -227,6 +227,10 @@ function defineStudentPerformanceModel(db) {
         classGrade: { type: DataTypes.STRING, allowNull: false },
         section: { type: DataTypes.STRING, allowNull: true },
         subject: { type: DataTypes.STRING, allowNull: false },
+        examType: { type: DataTypes.STRING, allowNull: true },
+        examYear: { type: DataTypes.STRING, allowNull: true },
+        obtainedMarks: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+        totalMarks: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
         percentage: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
         grade: { type: DataTypes.STRING, allowNull: true },
         skill: { type: DataTypes.STRING, allowNull: true },
@@ -443,6 +447,10 @@ async function ensureLegacySchema(db) {
 
     await ensureTableColumns(db, 'StudentPerformances', {
         section: { type: DataTypes.STRING, allowNull: true },
+        examType: { type: DataTypes.STRING, allowNull: true },
+        examYear: { type: DataTypes.STRING, allowNull: true },
+        obtainedMarks: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+        totalMarks: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
         skill: { type: DataTypes.STRING, allowNull: true },
         learningOutcome: { type: DataTypes.TEXT, allowNull: true },
         rating: { type: DataTypes.STRING, allowNull: true },

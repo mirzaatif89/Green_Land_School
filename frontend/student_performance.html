@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Performance - Green Land Model School Jand</title>
+    <title>Student Exams - Green Land Model School Jand</title>
     <link rel="icon" type="image/png" href="images/logo.jpeg">
     <link rel="stylesheet" href="style.css?v=20260814-centered-school-name">
     <link rel="stylesheet" href="student_schedule_theme.css">
@@ -12,6 +12,7 @@
         .performance-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 18px}
         .performance-steps.co-curriculum-mode{grid-template-columns:repeat(3,1fr)}
         .performance-step{box-sizing:border-box;min-height:110px;padding:16px 16px;border:1px solid #cfe3dc;border-radius:12px;background:#fff;color:#64748b;font-weight:800;line-height:1.5;display:flex;align-items:flex-start;gap:6px}
+        #stepSubjects,#stepSkills{display:none!important}
         .performance-step:has(.step-select){display:block}
         .performance-step.active{color:#176b4a;border-color:#35a56e;background:#effaf4;box-shadow:0 8px 20px rgba(53,165,110,.12)}
         .performance-layout{display:block}
@@ -28,9 +29,14 @@
         .performance-heading{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}
         .performance-heading h2{margin:0}
         .subject-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+        .marks-table-wrap{overflow:auto;border:1px solid #dcebe5;border-radius:10px;background:#fff}.marks-table{width:100%;min-width:850px;border-collapse:collapse}.marks-table th,.marks-table td{padding:10px;border-bottom:1px solid #e3eee9;text-align:left}.marks-table th{background:#f5faf7;color:#426554;font-size:.78rem;text-transform:uppercase}.marks-table input{width:100%;min-width:90px;box-sizing:border-box;border:1px solid #cbded5;border-radius:7px;padding:8px;font:inherit}.marks-table .subject-name{font-weight:800;color:#153d2e}.marks-row-save{white-space:nowrap}
+        .marks-table .all-subjects-total th{background:#e8f5ee;color:#153d2e;font-size:.88rem;font-weight:900;text-transform:none;border-top:2px solid #35a56e}
+        .marks-delete-button{margin-left:6px;background:#fff1f2!important;color:#be123c!important;border:1px solid #fecdd3!important}
         .subject-card{border:1px solid #d7e7e0;border-radius:10px;background:#fbfefd;padding:14px;text-align:left;cursor:pointer;font:inherit;color:#24483a}
         .subject-card:hover{border-color:#35a56e;background:#effaf4}
         .subject-card strong{display:block;margin-bottom:4px}
+        .exam-type-card{display:grid;grid-template-columns:minmax(200px,300px) 1fr;gap:14px;align-items:end;margin:0 0 14px;padding:14px;border:1px solid #dcebe5;border-radius:10px;background:#f8fcfa}
+        @media(max-width:650px){.exam-type-card{grid-template-columns:1fr}}
         .table-wrap{overflow:auto}
         .performance-table{width:100%;border-collapse:collapse;min-width:850px}
         .performance-table th,.performance-table td{padding:10px 9px;border-bottom:1px solid #e3eee9;text-align:left;vertical-align:top}
@@ -85,8 +91,8 @@
     <aside class="sidebar"><div class="logo-section"><img class="sidebar-logo-img" src="images/logo.jpeg" alt="Green Land Model School Jand logo"></div><nav class="nav-links"></nav><a href="settings.html" class="user-profile"><div class="avatar">A</div><div class="user-info"><h4>Administrator</h4><p>Admin</p></div></a></aside>
     <main class="main-content">
         <a class="back-link" href="student_scheduling.html"><i data-lucide="arrow-left" width="18"></i> Back to Student Scheduling</a>
-        <header class="header"><div><h1>Student Performance</h1><p style="color:var(--text-secondary);margin-top:.3rem">Select a student, choose a subject, then add skill-wise performance.</p></div></header>
-        <div class="performance-steps"><div class="performance-step active" id="stepClass">1. Select Class<select class="step-select" id="classStepSelect"><option value="">Select Class</option></select><select class="step-select" id="sectionStepSelect" disabled><option value="">Select Section</option></select></div><div class="performance-step" id="stepStudent">2. Select Student<select class="step-select" id="studentStepSelect" disabled><option value="">Select Student</option></select></div><div class="performance-step" id="stepSubjects">3. Select Subject<select class="step-select" id="subjectStepSelect" disabled><option value="">Select Subject</option></select></div><div class="performance-step" id="stepSkills">4. Add Performance</div></div>
+        <header class="header"><div><h1>Student Exams</h1><p style="color:var(--text-secondary);margin-top:.3rem">Select a student, exam year, and enter subject marks and grades.</p></div></header>
+        <div class="performance-steps"><div class="performance-step active" id="stepClass">1. Select Class<select class="step-select" id="classStepSelect"><option value="">Select Class</option></select><select class="step-select" id="sectionStepSelect" disabled><option value="">Select Section</option></select></div><div class="performance-step" id="stepStudent">2. Select Student<select class="step-select" id="studentStepSelect" disabled><option value="">Select Student</option></select></div><div class="performance-step" id="stepSubjects" hidden><select class="step-select" id="subjectStepSelect" disabled><option value="">Select Subject</option></select></div><div class="performance-step" id="stepSkills" hidden></div></div>
         <section class="performance-layout">
             <div class="performance-panel"><h2 id="choiceTitle">Select Class</h2><select class="class-select" id="choiceList"><option value="">Loading classes...</option></select></div>
             <div class="performance-panel" id="workspace"><div class="empty-state"><i data-lucide="school" width="32"></i><p>Select a class to view its students.</p></div></div>
@@ -102,7 +108,7 @@
     const token = sessionStorage.getItem('eduCore_token') || '';
     const headers = () => ({ 'Content-Type':'application/json', ...(token ? { Authorization:`Bearer ${token}` } : {}) });
     const PERFORMANCE_CACHE_KEY = 'eduCore_student_skill_performance';
-    const canonicalClasses = ['Play Group','Nursarry','Prep','Class One','Class Two','Class Three','Class Four','Class Five','Class Six','Class Seven','Class Eight','Class Nine','Class 10'];
+    const canonicalClasses = ['Play Group','Nursarry','Prep','Class One','Class Two','Class Three','Class Four','Class Five','Class Six','Class Seven','Class Eight'];
     const juniorSubjects = ['English','Urdu','Mathematics','Science','Social Study','Islamiyat','Nazra','Math'];
     const seniorSubjects = ['English','Urdu','Mathematics','Science','Social Study','Islamiyat','Nazra','Math'];
     const ratings = ['Excellent','Satisfactory','Needs Practice'];
@@ -134,11 +140,17 @@
     let selectedStudentSection = '';
     let selectedStudent = null;
     let selectedSubject = '';
+    let selectedExamType = 'Mid Term';
+    let selectedExamYear = String(new Date().getFullYear());
     let selectedSection = 'Portfolio Skills Assessment Summary';
     let saved = [];
     let attendanceStore = {};
     let examResults = [];
     let teacherAssignedSubjects = null;
+    let teacherAssignments = null;
+    const isTeacherPortal = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null')?.role === 'Teacher';
+    const teacherQuery = new URLSearchParams(location.search);
+    const teacherEmbedded = isTeacherPortal && teacherQuery.get('embedded') === 'teacher';
     const choiceTitle = document.getElementById('choiceTitle');
     const choiceList = document.getElementById('choiceList');
     const classStepSelect = document.getElementById('classStepSelect');
@@ -154,6 +166,24 @@
     }
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const norm = value => String(value || '').trim().toLowerCase().replace(/\s+/g,' ');
+    function assignmentSubjects(assignment = {}) {
+        const values = assignment.assignedSubjects || assignment.subjects || assignment.subject || '';
+        return (Array.isArray(values) ? values : String(values).split(/[,|]/)).map(value => String(value || '').trim()).filter(Boolean);
+    }
+    function teacherAssignmentMatches(className, section = '', subject = '') {
+        if (!teacherEmbedded || !Array.isArray(teacherAssignments)) return false;
+        return teacherAssignments.some(assignment => {
+            if (norm(assignment.className || assignment.classGrade) !== norm(className)) return false;
+            const assignedSection = norm(assignment.section);
+            if (assignedSection && assignedSection !== 'general' && assignedSection !== norm(section || 'General')) return false;
+            const subjects = assignmentSubjects(assignment);
+            const permittedSubjects = subjects.length ? subjects : (teacherAssignedSubjects || []);
+            return permittedSubjects.length > 0 && (!subject || permittedSubjects.some(value => norm(value) === norm(subject)));
+        });
+    }
+    function teacherStudentIsAssigned(student) {
+        return !teacherEmbedded || teacherAssignmentMatches(student.classGrade, student.section || 'General');
+    }
     const logoSrc = new URL('images/logo.jpeg', location.href).href;
     const today = () => {
         const date = new Date();
@@ -163,7 +193,10 @@
         return `${year}-${month}-${day}`;
     };
     const thisMonth = () => today().slice(0, 7);
-    const performanceIdFor = record => String(record.id || `PERF-${record.studentId}-${record.subject}-${record.performanceDate}-${record.skill || 'summary'}`).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 255);
+    const performanceIdFor = record => String(record.id || `PERF-${record.studentId}-${record.subject}-${record.examType || 'Mid Term'}-${record.performanceDate}-${record.skill || 'summary'}`).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 255);
+    const subjectMarksId = (subject, examType = selectedExamType, examYear = selectedExamYear) => `MARKS-${selectedStudent?.id || 'student'}-${subject}-${examType}-${examYear}`.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 255);
+    function subjectMarksRecord(subject, examType = selectedExamType, examYear = selectedExamYear) { return saved.find(record => record.skill === '__subject_marks__' && norm(record.subject) === norm(subject) && norm(record.examType || 'Mid Term') === norm(examType) && String(record.examYear || new Date(record.performanceDate || '').getFullYear()) === String(examYear)) || {}; }
+    function gradeForPercentage(percentage) { if (percentage >= 90) return 'A+'; if (percentage >= 80) return 'A'; if (percentage >= 70) return 'B'; if (percentage >= 60) return 'C'; if (percentage >= 50) return 'D'; return 'F'; }
 
     function getLocalPerformanceRecords(studentId = '') {
         const records = JSON.parse(localStorage.getItem(PERFORMANCE_CACHE_KEY) || '[]');
@@ -198,6 +231,9 @@
     }
 
     function classNames() {
+        if (teacherEmbedded && Array.isArray(teacherAssignments)) {
+            return [...new Map(teacherAssignments.map(item => [norm(item.className || item.classGrade), String(item.className || item.classGrade || '').trim()]).filter(([key, value]) => key && value)).values()];
+        }
         const found = [...canonicalClasses, ...students.map(s => s.classGrade), ...courses.map(c => c.classGrade)]
             .map(value => String(value || '').trim())
             .filter(Boolean);
@@ -221,6 +257,13 @@
         ].filter(value => value && !excludedReportSubjects.has(norm(value)));
         const fixedSubjects = ['Play Group','Nursarry','Prep'].some(name => norm(name) === norm(selectedClass)) ? juniorSubjects : seniorSubjects;
         const baseSubjects = [...new Map([...(scheduledTitles.length ? [] : fixedSubjects), ...assignedToStudent, ...titles].map(value => [norm(value), value])).values()];
+        if (teacherEmbedded) {
+            const scopedAssignments = teacherAssignments.filter(item => norm(item.className || item.classGrade) === norm(selectedClass)
+                && (!String(item.section || '').trim() || norm(item.section) === norm(selectedStudentSection || 'General') || norm(item.section) === 'general'));
+            const explicitSubjects = [...new Set(scopedAssignments.flatMap(assignmentSubjects))];
+            const scopedSubjects = explicitSubjects.length ? explicitSubjects : teacherAssignedSubjects || [];
+            return baseSubjects.filter(subject => scopedSubjects.some(assigned => norm(assigned) === norm(subject)));
+        }
         if (Array.isArray(teacherAssignedSubjects)) {
             return baseSubjects.filter(subject => teacherAssignedSubjects.some(assigned => norm(assigned) === norm(subject)));
         }
@@ -235,7 +278,8 @@
         classStepSelect.innerHTML = '<option value="">Select Class</option>' + classNames().map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
         classStepSelect.value = selectedClass;
         classStepSelect.onchange = () => classStepSelect.value && selectClass(classStepSelect.value, '');
-        const sectionOptions = [...new Set(students.filter(student => norm(student.classGrade) === norm(selectedClass)).map(student => String(student.section || 'General').trim()).filter(Boolean))].sort();
+        const assignedSections = teacherEmbedded ? teacherAssignments.filter(item => norm(item.className || item.classGrade) === norm(selectedClass)).map(item => String(item.section || '').trim()).filter(Boolean) : [];
+        const sectionOptions = [...new Set((teacherEmbedded && assignedSections.length ? assignedSections : students.filter(student => norm(student.classGrade) === norm(selectedClass) && teacherStudentIsAssigned(student)).map(student => String(student.section || 'General').trim())).filter(Boolean))].sort();
         sectionStepSelect.disabled = !selectedClass || !sectionOptions.length;
         sectionStepSelect.innerHTML = '<option value="">Select Section</option>' + sectionOptions.map(section => `<option value="${esc(section)}">${esc(section)}</option>`).join('');
         sectionStepSelect.value = selectedStudentSection;
@@ -243,15 +287,20 @@
     }
 
     function selectClass(name, section = '') {
+        if (teacherEmbedded && !classNames().some(value => norm(value) === norm(name))) {
+            workspace.innerHTML = '<div class="empty-state">Access is limited to your assigned classes.</div>';
+            return;
+        }
         selectedClass = name;
-        const availableSections = [...new Set(students.filter(student => norm(student.classGrade) === norm(name)).map(student => String(student.section || 'General').trim()).filter(Boolean))];
+        const assignedSections = teacherEmbedded ? teacherAssignments.filter(item => norm(item.className || item.classGrade) === norm(name)).map(item => String(item.section || '').trim()).filter(Boolean) : [];
+        const availableSections = [...new Set((teacherEmbedded && assignedSections.length ? assignedSections : students.filter(student => norm(student.classGrade) === norm(name) && teacherStudentIsAssigned(student)).map(student => String(student.section || 'General').trim())).filter(Boolean))];
         selectedStudentSection = section || availableSections[0] || '';
         selectedStudent = null;
         selectedSubject = '';
         saved = [];
         setSteps(2);
         renderClasses();
-        const list = students.filter(student => norm(student.classGrade) === norm(name) && norm(student.section || 'General') === norm(selectedStudentSection || 'General'));
+        const list = students.filter(student => norm(student.classGrade) === norm(name) && norm(student.section || 'General') === norm(selectedStudentSection || 'General') && teacherStudentIsAssigned(student));
         studentStepSelect.disabled = !list.length;
         studentStepSelect.innerHTML = '<option value="">Select Student</option>' + list.map(student => `<option value="${esc(student.id)}">${esc(student.fullName || 'Unnamed Student')}</option>`).join('');
         studentStepSelect.value = '';
@@ -263,20 +312,26 @@
 
     async function selectStudent(id) {
         selectedStudent = students.find(student => String(student.id) === String(id));
-        if (!selectedStudent) return;
+        if (!selectedStudent || !teacherStudentIsAssigned(selectedStudent)) {
+            selectedStudent = null;
+            workspace.innerHTML = '<div class="empty-state">Access is limited to students in your assigned class and section.</div>';
+            return;
+        }
         setSteps(3);
         workspace.innerHTML = '<div class="empty-state">Loading subjects...</div>';
+        saved = getLocalPerformanceRecords(id);
         try {
-            const response = await fetch(`${apiBase}/student-performance?studentId=${encodeURIComponent(id)}`, { headers: headers() });
+            const response = await fetch(`${apiBase}/student-results?studentId=${encodeURIComponent(id)}`, { headers: headers() });
             const result = await response.json();
-            if (!response.ok || !result.success) throw new Error(result.message || 'Performance could not be loaded.');
-            saved = mergePerformanceRecords(result.performances || [], getLocalPerformanceRecords(id));
-            renderSubjects();
+            if (!response.ok || !result.success) throw new Error(result.message || 'Exam marks could not be loaded.');
+            const markRows = (result.results || []).filter(record => record.subject && record.obtainedMarks !== '' && record.obtainedMarks != null).map(record => ({ ...record, examType: record.examType || record.examName || 'Mid Term', examYear: String(record.examYear || record.session || ''), skill: '__subject_marks__' }));
+            saved = mergePerformanceRecords(markRows, saved);
         } catch (error) {
-            saved = getLocalPerformanceRecords(id);
             renderSubjects();
-            if (!saved.length) workspace.innerHTML = `<div class="empty-state">${esc(error.message)}</div>`;
+            if (!saved.length) workspace.innerHTML = `<div class="empty-state">${esc(error.message || 'Exam marks could not be loaded.')}</div>`;
+            return;
         }
+        renderSubjects();
     }
 
     function renderSubjects() {
@@ -291,19 +346,28 @@
         const subjects = subjectsForClass();
         subjectStepSelect.disabled = !subjects.length;
         subjectStepSelect.innerHTML = '<option value="">Select Subject</option>' + subjects.map(subject => `<option value="${esc(subject)}">${esc(subject)}</option>`).join('');
-        const preferredSubject = Array.isArray(teacherAssignedSubjects)
-            ? subjects.find(subject => teacherAssignedSubjects.some(assigned => norm(assigned) === norm(subject))) || ''
-            : '';
-        subjectStepSelect.value = preferredSubject;
-        subjectStepSelect.onchange = () => subjectStepSelect.value && renderSkillEditor(subjectStepSelect.value);
-        const countFor = subject => saved.filter(record => norm(record.subject) === norm(subject) && record.skill).length;
-        const sections = ['Portfolio Skills Assessment Summary','Performance Task','Learning Attitude'];
-        workspace.innerHTML = `<div class="performance-heading"><div><h2>${esc(selectedStudent.fullName)}</h2><span class="choice-meta">${esc(selectedClass)} - Roll No: ${esc(selectedStudent.rollNo || selectedStudent.studentCode || '-')}</span></div></div><div class="subject-grid">${subjects.map(subject => `<button type="button" class="subject-card subject-open-btn" data-subject="${esc(subject)}"><strong>${esc(subject)}</strong><span class="choice-meta">Click to open report</span></button>`).join('')}</div>`;
-        workspace.querySelectorAll('.subject-open-btn').forEach(button => button.onclick = () => renderSkillEditor(button.dataset.subject));
-        workspace.querySelectorAll('.subject-section-btn').forEach(block => block.onclick = event => { event.stopPropagation(); const ratingBlock = event.target.closest('.assessment-rating-block'); if (!ratingBlock) { selectedSubject = block.dataset.subject; selectedSection = block.dataset.section; printReport(selectedSection); return; } selectedSection = block.dataset.section; selectedSubject = block.dataset.subject; const item = sectionItems[selectedSection][0]; openPerformanceModal({ assessmentSection: selectedSection, assessmentItem: item, assessmentRating: ratingBlock.dataset.rating }); });
-        workspace.querySelectorAll('.section-update-btn').forEach(button => button.onclick = event => { event.stopPropagation(); const block = button.closest('.subject-section-btn'); const item = block.querySelector('.section-item-select').value; if (!item) { showAppAlert('Select an assessment item first.', 'Item Required'); return; } selectedSection = block.dataset.section; selectedSubject = block.dataset.subject; openPerformanceModal({ assessmentSection: selectedSection, assessmentItem: item, assessmentRating: block.querySelector('.section-rating-select').value }); });
+        subjectStepSelect.value = '';
+        subjectStepSelect.disabled = true;
+        subjectStepSelect.onchange = () => {};
+        const storedYears = saved.map(record => Number(record.examYear || String(record.performanceDate || '').slice(0, 4))).filter(year => Number.isFinite(year) && year > 0);
+        const years = [...new Set([...Array.from({length: 11}, (_, index) => new Date().getFullYear() - index), ...storedYears])].sort((a,b) => b-a);
+        workspace.innerHTML = `<div class="performance-heading"><div><h2>${esc(selectedStudent.fullName)}</h2><span class="choice-meta">${esc(selectedClass)} - Roll No: ${esc(selectedStudent.rollNo || selectedStudent.studentCode || '-')}</span></div></div><div class="exam-type-card"><label class="field-label" for="marksExamYear">Report Year<select class="date-input" id="marksExamYear">${years.map(year => `<option value="${year}">${year}</option>`).join('')}</select></label><label class="field-label" for="marksExamType">Exams Type<select class="date-input" id="marksExamType"><option>Mid Term</option><option>Annual</option><option>Supply</option></select></label><span class="choice-meta">Percentage and grade are calculated from marks. Grade can be edited.</span></div><div class="marks-table-wrap"><table class="marks-table"><thead><tr><th>Subject</th><th>Obtain Marks</th><th>Total Marks</th><th>Grade</th><th>Percentage</th><th>Actions</th></tr></thead><tbody>${subjects.map(subject => { const r=subjectMarksRecord(subject); const obt=r.obtainedMarks ?? ''; const total=r.totalMarks ?? ''; const pct=Number(total)>0 ? Math.round(Number(obt)/Number(total)*100) : ''; return `<tr data-subject-row="${esc(subject)}"><td class="subject-name">${esc(subject)}</td><td><input type="number" min="0" step="1" class="obtain-marks" aria-label="${esc(subject)} obtain marks" value="${esc(obt === '' ? '' : Math.round(Number(obt)))}"></td><td><input type="number" min="1" step="1" class="total-marks" aria-label="${esc(subject)} total marks" value="${esc(total === '' ? '' : Math.round(Number(total)))}"></td><td><input type="text" maxlength="12" class="subject-grade" aria-label="${esc(subject)} grade" value="${esc(r.grade || '')}"></td><td class="marks-percentage">${pct === '' ? '-' : `${pct}%`}</td><td><button type="button" class="action-button secondary marks-row-save">Save</button><button type="button" class="action-button marks-delete-button marks-row-delete" aria-label="Delete ${esc(subject)} marks">Delete</button></td></tr>`; }).join('')}<tr class="all-subjects-total"><th>All Subjects</th><th id="allSubjectsObtained">-</th><th id="allSubjectsTotal">-</th><th id="allSubjectsGrade">-</th><th id="allSubjectsPercentage">-</th><th></th></tr></tbody></table></div>`;
+        const typeSelect = document.getElementById('marksExamType'); typeSelect.value = selectedExamType; typeSelect.onchange = () => { selectedExamType = typeSelect.value; renderSubjects(); };
+        const yearSelect = document.getElementById('marksExamYear'); yearSelect.value = selectedExamYear; yearSelect.onchange = () => { selectedExamYear = yearSelect.value; renderSubjects(); };
+        workspace.querySelectorAll('[data-subject-row]').forEach(row => { const obt=row.querySelector('.obtain-marks'), total=row.querySelector('.total-marks'), grade=row.querySelector('.subject-grade'), output=row.querySelector('.marks-percentage'); const update=()=>{const t=Number(total.value), o=Number(obt.value), pct=t>0&&obt.value!==''?(o/t*100):NaN; output.textContent=Number.isFinite(pct)?`${Math.round(pct)}%`:'-'; if(Number.isFinite(pct)) grade.value=gradeForPercentage(pct); updateAllSubjectsTotals();}; obt.oninput=total.oninput=update; row.querySelector('.marks-row-save').onclick=()=>saveSubjectMarks(row); row.querySelector('.marks-row-delete').onclick=()=>deleteSubjectMarks(row); });
+        updateAllSubjectsTotals();
         if (window.lucide) lucide.createIcons();
-        if (preferredSubject) renderSkillEditor(preferredSubject);
+    }
+
+    function updateAllSubjectsTotals() {
+        const marksRows = [...workspace.querySelectorAll('[data-subject-row]')].map(row => ({ obtained: row.querySelector('.obtain-marks').value, total: row.querySelector('.total-marks').value })).filter(record => record.obtained !== '' && record.total !== '' && Number(record.total) > 0 && Number.isFinite(Number(record.obtained)) && Number.isFinite(Number(record.total)));
+        const obtained = marksRows.reduce((sum, record) => sum + Number(record.obtained), 0);
+        const total = marksRows.reduce((sum, record) => sum + Number(record.total), 0);
+        const percentage = total > 0 ? Math.round(obtained / total * 100) : null;
+        document.getElementById('allSubjectsObtained').textContent = marksRows.length ? String(obtained) : '-';
+        document.getElementById('allSubjectsTotal').textContent = marksRows.length ? String(total) : '-';
+        document.getElementById('allSubjectsPercentage').textContent = percentage == null ? '-' : percentage + '%';
+        document.getElementById('allSubjectsGrade').textContent = percentage == null ? '-' : gradeForPercentage(percentage);
     }
 
     function renderLegacySkillEditor(subject) {
@@ -382,6 +446,107 @@
         } catch (error) { showAppAlert(error.message || 'Could not save performance.', 'Save Failed'); }
     }
 
+    function renderSkillEditor(subject) { renderSectionEditor(subject, ''); }
+
+    function renderSectionEditor(subject, section = selectedSection) { selectedSubject=subject; selectedSection=section||''; setSteps(4); workspace.innerHTML='<div class="empty-state">Subject skill reports are not shown here.</div>'; }
+
+    async function saveSubjectMarks(row) {
+        const subject=row.dataset.subjectRow, obtainedRaw=row.querySelector('.obtain-marks').value.trim(), totalRaw=row.querySelector('.total-marks').value.trim(), grade=row.querySelector('.subject-grade').value.trim(); const obtained=Number(obtainedRaw), total=Number(totalRaw);
+        if (teacherEmbedded && (!teacherStudentIsAssigned(selectedStudent) || !teacherAssignmentMatches(selectedClass, selectedStudentSection, subject))) { showAppAlert('You can only upload results for your assigned class, section, and subject.', 'Access Restricted'); return; }
+        if(obtainedRaw===''||totalRaw===''||!Number.isFinite(obtained)||!Number.isFinite(total)||!Number.isInteger(obtained)||!Number.isInteger(total)||obtained<0||total<=0||obtained>total){showAppAlert('Enter whole-number marks for obtain and total. Obtain marks cannot exceed total marks.','Marks Required');return;}
+        const date=today(), percentage=Math.round(obtained/total*100), finalGrade=grade||gradeForPercentage(percentage), record={id:subjectMarksId(subject),studentId:String(selectedStudent.id),studentName:selectedStudent.fullName||'',classGrade:selectedClass,section:selectedStudentSection,subject,examType:selectedExamType,examYear:selectedExamYear,examName:selectedExamType,session:selectedExamYear,obtainedMarks:obtained,totalMarks:total,grade:finalGrade,percentage,skill:'__subject_marks__',learningOutcome:'',rating:'',excellentDescription:'',satisfactoryDescription:'',needsPracticeDescription:'',performanceDate:date,performanceMonth:date.slice(0,7),remarks:''}; saveLocalPerformanceRecord(record);
+        try{const response=await fetch(`${apiBase}/student-results`,{method:'POST',headers:headers(),body:JSON.stringify(record)});const result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||'Marks could not be saved.');saved=mergePerformanceRecords([record],saved);updateAllSubjectsTotals();const button=row.querySelector('.marks-row-save');button.textContent='Saved';button.disabled=true;setTimeout(()=>{button.textContent='Save';button.disabled=false;},1200);}catch(error){saved=mergePerformanceRecords([record],saved);showAppAlert(error.message||'Marks could not be saved.','Save Failed');}
+    }
+
+    async function deleteSubjectMarks(row) {
+        const subject = row.dataset.subjectRow;
+        if (teacherEmbedded && (!teacherStudentIsAssigned(selectedStudent) || !teacherAssignmentMatches(selectedClass, selectedStudentSection, subject))) { showAppAlert('You can only manage marks for your assigned class, section, and subject.', 'Access Restricted'); return; }
+        const record = subjectMarksRecord(subject);
+        if (!(await showAppConfirm(`Delete ${subject} marks for ${selectedExamType} ${selectedExamYear}?`))) return;
+        try {
+            if (record.id) {
+                const response = await fetch(`${apiBase}/student-results/${encodeURIComponent(record.id)}`, { method: 'DELETE', headers: headers() });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || result.success === false) throw new Error(result.message || 'Marks could not be deleted.');
+            }
+            saved = saved.filter(item => String(item.id || '') !== String(record.id || ''));
+            if (record.id) deleteLocalPerformanceRecord(record.id);
+            row.querySelector('.obtain-marks').value = '';
+            row.querySelector('.total-marks').value = '';
+            row.querySelector('.subject-grade').value = '';
+            row.querySelector('.marks-percentage').textContent = '-';
+            updateAllSubjectsTotals();
+        } catch (error) {
+            showAppAlert(error.message || 'Marks could not be deleted.', 'Delete Failed');
+        }
+    }
+
+    function renderCoCurriculumEditor() {
+        setSteps(4);
+        const items = ['Project', 'Presentation', 'Practical Task', 'Activities'];
+        const levels = ['Advance', 'Proficient', 'Developing', 'Below 50% Beginning'];
+        const savedRatings = item => saved.filter(record => String(record.subject || '').toLowerCase() === 'co-curriculum' && String(record.skill || '').toLowerCase().startsWith(`${item.toLowerCase()}__`)).map(record => String(record.skill || '').split('__')[1] || '');
+        workspace.innerHTML = `<div class="performance-heading"><div><h2>Co-Curriculum Performance</h2><span class="choice-meta">${esc(selectedStudent.fullName)} - ${esc(selectedClass)}</span></div></div><div style="overflow:auto;border:1px solid #cfe3dc;border-radius:12px;background:#fff"><table class="schedule-table" style="min-width:720px"><thead><tr><th colspan="5" style="text-align:center">Performance Task</th></tr><tr><th>Co-Curricular Activities</th>${levels.map(level => `<th>${esc(level)}${level === 'Advance' ? '<br>85-100%' : level === 'Proficient' ? '<br>70-84%' : level === 'Developing' ? '<br>50-69%' : '<br>Beginning'}</th>`).join('')}</tr></thead><tbody>${items.map(item => { const checked = savedRatings(item); return `<tr><th>${esc(item)}</th>${levels.map(level => `<td style="text-align:center"><input type="checkbox" name="co-${esc(item)}" value="${esc(level)}" ${checked.includes(level) ? 'checked' : ''}></td>`).join('')}</tr>`; }).join('')}</tbody></table></div><div class="action-row"><button type="button" class="action-button" id="saveCoCurriculum"><i data-lucide="save" width="18"></i> Save Co-Curriculum Performance</button></div>`;
+        document.getElementById('saveCoCurriculum').onclick = saveCoCurriculumPerformance;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    async function saveCoCurriculumPerformance() {
+        const items = ['Project', 'Presentation', 'Practical Task', 'Activities'];
+        const date = today();
+        const records = items.flatMap(item => [...workspace.querySelectorAll(`input[name="co-${item}"]:checked`)].map(input => {
+            const rating = input.value;
+            const record = { studentId:String(selectedStudent.id), studentName:selectedStudent.fullName || '', classGrade:selectedClass, section:selectedStudentSection, subject:'Co-Curriculum', assessmentSection:'Co-Curriculum', assessmentItem:item, assessmentRating:rating, skill:`${item}__${rating}`, learningOutcome:rating, excellentDescription:rating === 'Advance' ? 'Advance' : '', satisfactoryDescription:rating === 'Proficient' ? 'Proficient' : '', needsPracticeDescription:['Developing','Below 50% Beginning'].includes(rating) ? rating : '', rating:rating === 'Advance' ? 'Excellent' : rating === 'Proficient' ? 'Satisfactory' : 'Needs Practice', grade:rating, performanceDate:date, performanceMonth:date.slice(0,7), percentage:0, remarks:'' };
+            record.id = performanceIdFor(record);
+            return record;
+        }));
+        if (!records.length) { showAppAlert('Select a rating for at least one activity.', 'Nothing Selected'); return; }
+        try {
+            for (const record of records) {
+                saveLocalPerformanceRecord(record);
+                const response = await fetch(`${apiBase}/student-performance`, { method:'POST', headers:headers(), body:JSON.stringify(record) });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || result.success === false) throw new Error(result.message || 'Could not save record.');
+            }
+            saved = mergePerformanceRecords(records, saved);
+            renderCoCurriculumEditor();
+            showSuccessModal('Saved', 'Co-Curriculum performance has been saved.');
+        } catch (error) { showAppAlert(error.message || 'Could not save performance.', 'Save Failed'); }
+    }
+
+    function renderParticipationEditor() {
+        setSteps(4);
+        const items = ['Home Task Completion', 'Classroom Behavior', 'Hygiene Condition', 'Regularity'];
+        const levels = ['Advance', 'Proficient', 'Developing', 'Below 50% Beginning'];
+        const savedRatings = item => saved.filter(record => String(record.subject || '').toLowerCase() === 'participation' && String(record.skill || '').toLowerCase().startsWith(`${item.toLowerCase()}__`)).map(record => String(record.skill || '').split('__')[1] || '');
+        workspace.innerHTML = `<div class="performance-heading"><div><h2>Participant Report</h2><span class="choice-meta">${esc(selectedStudent.fullName)} - ${esc(selectedClass)}</span></div></div><div style="overflow:auto;border:1px solid #cfe3dc;border-radius:12px;background:#fff"><table class="schedule-table" style="min-width:720px"><thead><tr><th colspan="5" style="text-align:center">Learning Attitude</th></tr><tr><th>Participation</th>${levels.map(level => `<th>${esc(level)}${level === 'Advance' ? '<br>85-100%' : level === 'Proficient' ? '<br>70-84%' : level === 'Developing' ? '<br>50-69%' : '<br>Beginning'}</th>`).join('')}</tr></thead><tbody>${items.map(item => { const checked = savedRatings(item); return `<tr><th>${esc(item)}</th>${levels.map(level => `<td style="text-align:center"><input type="checkbox" name="part-${esc(item)}" value="${esc(level)}" ${checked.includes(level) ? 'checked' : ''}></td>`).join('')}</tr>`; }).join('')}</tbody></table></div><div class="action-row"><button type="button" class="action-button" id="saveParticipation"><i data-lucide="save" width="18"></i> Save Participations</button></div>`;
+        document.getElementById('saveParticipation').onclick = saveParticipationPerformance;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    async function saveParticipationPerformance() {
+        const items = ['Home Task Completion', 'Classroom Behavior', 'Hygiene Condition', 'Regularity'];
+        const date = today();
+        const records = items.flatMap(item => [...workspace.querySelectorAll(`input[name="part-${item}"]:checked`)].map(input => {
+            const rating = input.value;
+            const record = { studentId:String(selectedStudent.id), studentName:selectedStudent.fullName || '', classGrade:selectedClass, section:selectedStudentSection, subject:'Participation', assessmentSection:'Participation', assessmentItem:item, assessmentRating:rating, skill:`${item}__${rating}`, learningOutcome:rating, excellentDescription:rating === 'Advance' ? 'Advance' : '', satisfactoryDescription:rating === 'Proficient' ? 'Proficient' : '', needsPracticeDescription:['Developing','Below 50% Beginning'].includes(rating) ? rating : '', rating:rating === 'Advance' ? 'Excellent' : rating === 'Proficient' ? 'Satisfactory' : 'Needs Practice', grade:rating, performanceDate:date, performanceMonth:date.slice(0,7), percentage:0, remarks:'' };
+            record.id = performanceIdFor(record);
+            return record;
+        }));
+        if (!records.length) { showAppAlert('Select a rating for at least one item.', 'Nothing Selected'); return; }
+        try {
+            for (const record of records) {
+                saveLocalPerformanceRecord(record);
+                const response = await fetch(`${apiBase}/student-performance`, { method:'POST', headers:headers(), body:JSON.stringify(record) });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || result.success === false) throw new Error(result.message || 'Could not save record.');
+            }
+            saved = mergePerformanceRecords(records, saved);
+            renderParticipationEditor();
+            showSuccessModal('Saved', 'Participations have been saved.');
+        } catch (error) { showAppAlert(error.message || 'Could not save performance.', 'Save Failed'); }
+    }
+
     function renderSkillEditor(subject) {
         renderSectionEditor(subject, '');
     }
@@ -390,8 +555,11 @@
         selectedSubject = subject;
         selectedSection = section || '';
         setSteps(4);
-        const rows = saved.filter(record => norm(record.subject) === norm(subject) && record.skill);
-        workspace.innerHTML = `<div class="performance-heading"><div><h2>${esc(subject)} Performance</h2><span class="choice-meta">${esc(selectedStudent.fullName)} - ${esc(selectedClass)}</span></div><div class="action-row" style="margin-top:0"><button type="button" class="action-button secondary" id="backSubjects"><i data-lucide="arrow-left" width="18"></i> Subjects</button><button type="button" class="action-button" id="addPerformance"><i data-lucide="plus" width="18"></i> Add Performance</button><button type="button" class="action-button secondary" id="printTools"><i data-lucide="printer" width="18"></i> Print</button></div></div><div class="record-list">${rows.length ? rows.map(record => `<div class="record-card" data-performance-card="true" data-record="${esc(record.id)}" data-subject="${esc(record.subject || subject)}" data-skill="${esc(record.skill || '')}" data-learning-outcome="${esc(record.learningOutcome || '')}" data-excellent="${esc(record.excellentDescription || '')}" data-satisfactory="${esc(record.satisfactoryDescription || '')}" data-needs-practice="${esc(record.needsPracticeDescription || '')}" data-date="${esc(record.performanceDate || '')}"><div class="record-card-top"><div><strong>${esc(record.skill)}</strong><span class="choice-meta">${esc(record.learningOutcome)}</span><span class="badge">Date: ${esc(record.performanceDate || '-')}</span></div><div class="action-row" style="margin-top:0"><button class="action-button secondary edit-record" data-record="${esc(record.id)}" type="button"><i data-lucide="pencil" width="16"></i> Edit</button><button class="action-button danger delete-record" data-record="${esc(record.id)}" type="button"><i data-lucide="trash-2" width="16"></i> Delete</button></div></div><span class="choice-meta">Excellent: ${esc(record.excellentDescription || '-')}</span><span class="choice-meta">Satisfactory: ${esc(record.satisfactoryDescription || '-')}</span><span class="choice-meta">Needs Practice: ${esc(record.needsPracticeDescription || '-')}</span></div>`).join('') : '<div class="empty-state">No saved skill performance for this subject yet. Click Add Performance to create one.</div>'}</div>`;
+        const allRows = saved.filter(record => norm(record.subject) === norm(subject) && record.skill && record.skill !== '__subject_marks__');
+        const rows = allRows.filter(record => norm(record.examType || 'Mid Term') === norm(selectedExamType));
+        workspace.innerHTML = `<div class="performance-heading"><div><h2>${esc(subject)} Performance</h2><span class="choice-meta">${esc(selectedStudent.fullName)} - ${esc(selectedClass)}</span></div><div class="action-row" style="margin-top:0"><button type="button" class="action-button secondary" id="backSubjects"><i data-lucide="arrow-left" width="18"></i> Subjects</button><button type="button" class="action-button" id="addPerformance"><i data-lucide="plus" width="18"></i> Add Performance</button><button type="button" class="action-button secondary" id="printTools"><i data-lucide="printer" width="18"></i> Print</button></div></div><div class="exam-type-card"><label class="field-label" for="examTypeSelect">Exams Type<select class="date-input" id="examTypeSelect"><option>Mid Term</option><option>Annual</option><option>Supply</option></select></label><span class="choice-meta">${rows.length} ${esc(selectedExamType)} record${rows.length === 1 ? '' : 's'}${allRows.length !== rows.length ? ` ? ${allRows.length} records across all exam types` : ''}</span></div><div class="record-list">${rows.length ? rows.map(record => `<div class="record-card" data-performance-card="true" data-record="${esc(record.id)}" data-subject="${esc(record.subject || subject)}" data-exam-type="${esc(record.examType || 'Mid Term')}" data-skill="${esc(record.skill || '')}" data-learning-outcome="${esc(record.learningOutcome || '')}" data-excellent="${esc(record.excellentDescription || '')}" data-satisfactory="${esc(record.satisfactoryDescription || '')}" data-needs-practice="${esc(record.needsPracticeDescription || '')}" data-date="${esc(record.performanceDate || '')}"><div class="record-card-top"><div><strong>${esc(record.skill)}</strong><span class="choice-meta">${esc(record.learningOutcome)}</span><span class="badge">${esc(record.examType || 'Mid Term')} ? Date: ${esc(record.performanceDate || '-')}</span></div><div class="action-row" style="margin-top:0"><button class="action-button secondary edit-record" data-record="${esc(record.id)}" type="button"><i data-lucide="pencil" width="16"></i> Edit</button><button class="action-button danger delete-record" data-record="${esc(record.id)}" type="button"><i data-lucide="trash-2" width="16"></i> Delete</button></div></div><span class="choice-meta">Excellent: ${esc(record.excellentDescription || '-')}</span><span class="choice-meta">Satisfactory: ${esc(record.satisfactoryDescription || '-')}</span><span class="choice-meta">Needs Practice: ${esc(record.needsPracticeDescription || '-')}</span></div>`).join('') : `<div class="empty-state">No ${esc(selectedExamType)} records for this subject yet. Click Add Performance to create one.</div>`}</div>`;
+        document.getElementById('examTypeSelect').value = selectedExamType;
+        document.getElementById('examTypeSelect').onchange = event => { selectedExamType = event.target.value; renderSectionEditor(subject, section); };
         bindEditor();
     }
 
@@ -501,6 +669,7 @@
             classGrade: selectedClass,
             section: selectedStudentSection,
             subject: selectedSubject,
+            examType: document.getElementById('examTypeSelect')?.value || selectedExamType,
             assessmentSection: 'Portfolio Skills Assessment Summary',
             assessmentItem: document.getElementById('modalSkill').value.trim(),
             assessmentRating: 'Advance',
@@ -577,6 +746,7 @@
             studentName: selectedStudent?.fullName || '',
             classGrade: selectedClass,
             subject: card.dataset.subject || selectedSubject,
+            examType: card.dataset.examType || 'Mid Term',
             skill: card.dataset.skill || '',
             learningOutcome: card.dataset.learningOutcome || '',
             excellentDescription: card.dataset.excellent || '',
@@ -588,7 +758,7 @@
 
     function getPrintablePerformanceRecords(sectionOnly = '') {
         const subject = selectedSubject;
-        return saved.filter(record => record.skill && norm(record.subject) === norm(subject) && (!sectionOnly || (record.assessmentSection || 'Portfolio Skills Assessment Summary') === sectionOnly));
+        return saved.filter(record => record.skill && norm(record.subject) === norm(subject) && norm(record.examType || 'Mid Term') === norm(selectedExamType) && (!sectionOnly || (record.assessmentSection || 'Portfolio Skills Assessment Summary') === sectionOnly));
     }
 
     function printReport(sectionOnly = '') {
@@ -650,8 +820,25 @@
         try {
             const loggedInUser = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
             if (loggedInUser?.role === 'Teacher') {
-                const assignedFromPortal = new URLSearchParams(location.search).get('assignedSubjects');
+                const assignedFromPortal = teacherQuery.get('assignedSubjects');
                 if (assignedFromPortal) teacherAssignedSubjects = String(assignedFromPortal).split(/[,|]/).map(value => value.trim()).filter(Boolean);
+                try { teacherAssignments = JSON.parse(teacherQuery.get('teacherAssignments') || '[]'); } catch (_) { teacherAssignments = []; }
+                if (!teacherEmbedded) {
+                    workspace.innerHTML = '<div class="empty-state">Open exam results from your Teacher Portal Student Manager to use your assigned class and subject access.</div>';
+                    choiceList.innerHTML = '<option value="">Access through Teacher Portal</option>';
+                    classStepSelect.innerHTML = '<option value="">Access through Teacher Portal</option>';
+                    return;
+                }
+                if (performanceMode === 'co-curriculum' || performanceMode === 'participation') {
+                    workspace.innerHTML = '<div class="empty-state">This workspace is only for uploading assigned subject exam results.</div>';
+                    return;
+                }
+                if (!Array.isArray(teacherAssignments) || !teacherAssignments.some(item => assignmentSubjects(item).length)) {
+                    workspace.innerHTML = '<div class="empty-state">No class and subject assignments were found for your teacher account.</div>';
+                    choiceList.innerHTML = '<option value="">No assigned exam subjects</option>';
+                    classStepSelect.innerHTML = '<option value="">No assigned exam subjects</option>';
+                    return;
+                }
                 const teacherResponse = await fetch(`${apiBase}/teacher/me`, { headers: headers(), cache: 'no-store' });
                 const teacherData = await teacherResponse.json().catch(() => ({}));
                 if (!Array.isArray(teacherAssignedSubjects) || !teacherAssignedSubjects.length) {
@@ -673,6 +860,19 @@
             }
             students = Array.isArray(studentData) ? studentData : studentData.students || [];
             renderClasses();
+            if (teacherEmbedded) {
+                const studentId = teacherQuery.get('studentId');
+                const requestedClass = teacherQuery.get('class');
+                const requestedSection = teacherQuery.get('section') || 'General';
+                if (studentId && requestedClass) {
+                    selectClass(requestedClass, requestedSection);
+                    const target = students.find(student => String(student.id) === String(studentId) && teacherStudentIsAssigned(student));
+                    if (target) {
+                        studentStepSelect.value = target.id;
+                        await selectStudent(target.id);
+                    }
+                }
+            }
         } catch (_error) {
             students = [];
             renderClasses();

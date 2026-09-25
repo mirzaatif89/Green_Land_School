@@ -61,12 +61,11 @@ const DEFAULT_STUDENT_CLASS_ORDER = [
     'Class Five',
     'Class Six',
     'Class Seven',
-    'Class Eight',
-    'Class Nine',
-    'Class 10'
+    'Class Eight'
 ];
 let studentQuickFilterBranchCampuses = [];
 let studentColumnSearchFilter = null;
+let studentExamReportRecords = null;
 let classFeeDefaults = {};
 let classFeeHistory = [];
 let classFeeEditingHistoryId = '';
@@ -1076,6 +1075,8 @@ document.addEventListener('DOMContentLoaded', () => {
         bindStudentFormSubmit();
         const studentSearch = document.getElementById('studentSearchInput');
         const quickFilter = document.getElementById('studentQuickFilter');
+        const examYearFilter = document.getElementById('examReportYear');
+        const examTypeFilter = document.getElementById('examReportType');
         const studentProfileImage = document.getElementById('studentProfileImage');
         const studentNameInput = document.getElementById('fullName');
         populateStudentFamilyOptions();
@@ -1106,6 +1107,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (quickFilter) {
             quickFilter.addEventListener('change', renderStudents);
         }
+        if (examYearFilter) examYearFilter.addEventListener('change', renderStudents);
+        if (examTypeFilter) examTypeFilter.addEventListener('change', renderStudents);
+        if (window.location.hash === '#status') loadStudentExamReportRecords();
     }
 
     // === TEACHER PAGE ===
@@ -1485,7 +1489,7 @@ function normalizeTeacherSchedule(schedule) {
 const DEFAULT_TEACHER_SCHEDULE_CLASSES = [
     'Play Group', 'Nursarry', 'Prep',
     'Class One', 'Class Two', 'Class Three', 'Class Four', 'Class Five',
-    'Class Six', 'Class Seven', 'Class Eight', 'Class Nine', 'Class 10'
+    'Class Six', 'Class Seven', 'Class Eight'
 ];
 
 function splitTeacherClassAndSection(classGrade = '', section = '') {
@@ -3644,7 +3648,7 @@ function renderAdminSidebarSequence() {
         { type: 'link', page: 'notifications.html', label: 'Notification', icon: 'bell-ring' },
         { type: 'link', page: 'classes.html', label: 'Classes', icon: 'school' },
         { type: 'link', page: 'students.html', label: 'Students', icon: 'users' },
-        { type: 'link', page: 'students.html', hash: '#status', label: 'Performances', icon: 'trending-up' },
+        { type: 'link', page: 'students.html', hash: '#status', label: 'Examinations Report', icon: 'trending-up' },
         { type: 'link', page: 'teachers.html', label: 'Teachers', icon: 'book-open' },
         { type: 'link', page: 'staff.html', label: 'Staff', icon: 'briefcase' },
         { type: 'link', page: 'families.html', label: 'Families', icon: 'home' },
@@ -6828,83 +6832,55 @@ async function openStudentPerformanceReportFromEncoded(encodedPayload, reportMod
     let student = {};
     try { student = JSON.parse(decodeURIComponent(encodedPayload || '')) || {}; } catch (_) {}
     const escReport = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-    let records = [];
-    try {
-        const response = await fetch(`${typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : '/api'}/student-performance?studentId=${encodeURIComponent(student.id || '')}`, { headers: { Authorization: `Bearer ${sessionStorage.getItem('eduCore_token') || ''}` } });
-        const result = await response.json();
-        records = Array.isArray(result.performances) ? result.performances : [];
-    } catch (_) {}
-    try {
-        const localRecords = JSON.parse(localStorage.getItem('eduCore_student_skill_performance') || '[]');
-        const localForStudent = localRecords.filter(item => String(item.studentId) === String(student.id));
-        const merged = new Map();
-        [...records, ...localForStudent].forEach(item => merged.set(String(item.id || `${item.studentId}-${item.subject}-${item.performanceDate}-${item.skill}`), item));
-        records = [...merged.values()];
-    } catch (_) {}
-    const standardSubjects = ['English', 'Urdu', 'Mathematics', 'Science', 'Social Study', 'Islamiyat', 'Nazra', 'Math'];
-    const excludedSubjects = new Set(['co-curriculum', 'co curriculum', 'participation']);
-    const subjects = [...new Set([...standardSubjects, ...records.map(item => String(item.subject || '').trim())].filter(subject => subject && !excludedSubjects.has(subject.toLowerCase())))];
-    const modal = document.createElement('div');
-    modal.className = 'success-overlay';
-    modal.style.display = 'flex';
-    modal.innerHTML = `<div class="success-modal" style="width:min(760px,94vw);max-height:85vh;overflow:auto;text-align:left"><div style="display:flex;justify-content:space-between;align-items:center"><h2>Performance Report</h2><button type="button" class="btn btn-outline" id="closePerformanceReport">Close</button></div><p style="color:var(--text-secondary)">${escReport(student.fullName || 'Student')} · ${escReport(student.classGrade || '-')} · ${escReport(student.campusName || '-')}</p><div id="performanceReportSubjects" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:18px"></div><div id="performanceReportDetails" style="margin-top:18px"></div></div>`;
-    document.body.appendChild(modal);
-    const subjectsBox = modal.querySelector('#performanceReportSubjects');
-    const details = modal.querySelector('#performanceReportDetails');
-    modal.querySelector('#closePerformanceReport').onclick = () => modal.remove();
-    const showSubject = subject => {
-        const rows = records.filter(item => String(item.subject || '') === subject);
-        modal.classList.add('performance-report-fullscreen');
-        subjectsBox.style.display = 'none';
-        details.innerHTML = `<div style="border:1px solid #cfe3dc;border-radius:12px;padding:16px;background:#fff"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px"><div><h3 style="margin:0;color:#153d2e">${escReport(subject)} Performance</h3><small style="color:#64748b">Portfolio · ${escReport(student.fullName || 'Student')}</small></div><button type="button" class="btn btn-outline" onclick="window.print()">Print</button></div>${rows.length ? `<div style="overflow:auto"><table style="width:100%;min-width:760px;border-collapse:collapse;font-size:13px"><thead><tr style="background:#eef6f1"><th style="border:1px solid #9fb4aa;padding:9px;text-align:left">Skills</th><th style="border:1px solid #9fb4aa;padding:9px;text-align:left">Learning Outcome</th><th style="border:1px solid #9fb4aa;padding:9px;text-align:left">😊 Excellent</th><th style="border:1px solid #9fb4aa;padding:9px;text-align:left">🙂 Satisfactory</th><th style="border:1px solid #9fb4aa;padding:9px;text-align:left">😐 Needs Practice</th></tr></thead><tbody>${rows.map(item => `<tr><td style="border:1px solid #9fb4aa;padding:10px;vertical-align:top"><strong>${escReport(item.skill || '-')}</strong><br><small>${escReport(item.performanceDate || '')}</small></td><td style="border:1px solid #9fb4aa;padding:10px;vertical-align:top">${escReport(item.learningOutcome || '-')}</td><td style="border:1px solid #9fb4aa;padding:10px;vertical-align:top">${escReport(item.excellentDescription || '-')}</td><td style="border:1px solid #9fb4aa;padding:10px;vertical-align:top">${escReport(item.satisfactoryDescription || '-')}</td><td style="border:1px solid #9fb4aa;padding:10px;vertical-align:top">${escReport(item.needsPracticeDescription || '-')}</td></tr>`).join('')}</tbody></table></div><div style="display:flex;justify-content:space-between;gap:50px;margin-top:34px;text-align:center;font-size:12px"><div style="border-top:1px solid #334155;flex:1;padding-top:8px">Teacher's Signature</div><strong style="flex:1">Green Land Model School Jand</strong><div style="border-top:1px solid #334155;flex:1;padding-top:8px">Parent Signature</div></div>` : '<p>No performance record found.</p>'}</div>`;
-        const subjectPrintButton = details.querySelector('button');
-        if (subjectPrintButton) subjectPrintButton.onclick = null;
-        subjectPrintButton?.addEventListener('click', (event) => {
-            event.preventDefault();
-            const month = rows[0]?.performanceMonth || String(rows[0]?.performanceDate || '').slice(0, 7);
-            const portfolioLabel = month ? new Date(`${month}-01T00:00:00`).toLocaleDateString('en-GB', { month:'short', year:'numeric' }).replace(' ', '') : 'Portfolio';
-            const subjectRows = rows.map(item => `<tr><th>${escReport(item.skill || '-')}</th><td>${escReport(item.learningOutcome || '-')}</td><td>${escReport(item.excellentDescription || '')}</td><td>${escReport(item.satisfactoryDescription || '')}</td><td>${escReport(item.needsPracticeDescription || '')}</td></tr>`).join('') || '<tr><td colspan="5">No performance record found.</td></tr>';
-            const printable = `<main class="subject-portfolio"><div class="portfolio-top"><span>Portfolio_${escReport(portfolioLabel)}</span><strong>${escReport(subject)}-${escReport(student.rollNo || student.studentCode || '')}</strong><span>Name: ${escReport(student.fullName || '')}</span></div><table><thead><tr><th>Skills</th><th>Learning Outcome</th><th>☺ Excellent</th><th>☻ Satisfactory</th><th>☹ Needs Practice</th></tr></thead><tbody>${subjectRows}</tbody></table><footer><div>Teacher's Signature <span class="signature-line"></span></div><strong>Green Land Model School Jand<br>School Stamp</strong><div>Parent Signature <span class="signature-line"></span></div></footer></main>`;
-            const win = window.open('', '_blank', 'width=1000,height=800');
-            if (!win) return;
-            win.document.open();
-            win.document.write(`<!doctype html><html><head><title>${escReport(subject)} Subject Report</title><style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;font-family:"Times New Roman",serif;color:#111}.subject-portfolio{width:100%;font-size:10px}.portfolio-top{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;border:1.5px solid #111;border-radius:24px;background:#ddd;padding:8px 28px;margin:0 0 12px;font-size:14px;font-weight:700;text-align:center}.portfolio-top span:first-child{text-align:left}.portfolio-top span:last-child{text-align:right}.subject-portfolio table{width:100%;border-collapse:collapse;table-layout:fixed}.subject-portfolio th,.subject-portfolio td{border:1px solid #111;padding:4px 6px;vertical-align:top;line-height:1.12}.subject-portfolio thead th{font-size:13px;text-align:center;background:#e7e7e7}.subject-portfolio th:nth-child(1){width:15%}.subject-portfolio th:nth-child(2){width:23%}.subject-portfolio th:nth-child(3),.subject-portfolio th:nth-child(4),.subject-portfolio th:nth-child(5){width:20.66%}.circle{font-family:Arial;font-size:17px;line-height:8px;vertical-align:-2px;margin-right:5px}footer{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:end;gap:22px;text-align:center;font-size:12px;font-weight:700;margin-top:28px}footer>div{white-space:nowrap}.signature-line{display:inline-block;min-width:155px;border-bottom:1px solid #111;margin-left:4px;height:14px}@media print{body{padding:0}}</style></head><body>${printable}</body></html>`);
-            win.document.close();
-            win.onload = () => { win.focus(); win.print(); };
-        }, { once: true });
-    };
-    if (reportMode === 'full') {
-        modal.classList.add('performance-report-fullscreen');
-        subjectsBox.style.display = 'none';
-        details.innerHTML = buildStudentFullPortfolioReport(student, records, escReport);
-        window.printStudentFullPortfolioReport = () => {
-            const report = details.querySelector('.portfolio-report');
-            if (!report) return;
-            const printable = report.cloneNode(true);
-            printable.querySelector('.print-button')?.remove();
-            const win = window.open('', '_blank', 'width=900,height=900');
-            if (!win) return;
-            win.document.open();
-            win.document.write(`<!doctype html><html><head><title>Full Portfolio Report</title></head><body>${printable.outerHTML}</body></html>`);
-            win.document.close();
-            win.onload = () => { win.focus(); win.print(); };
-        };
-        details.querySelector('.print-button').onclick = window.printStudentFullPortfolioReport;
-        return;
-    }
-    if (reportMode === 'co-curriculum' || reportMode === 'participant') {
-        const title = reportMode === 'co-curriculum' ? 'Co-Curriculum Report' : 'Participant Report';
-        const match = reportMode === 'co-curriculum' ? /co.curriculum|performance task/i : /particip|learning attitude/i;
-        const filtered = records.filter(item => match.test(String(item.assessmentSection || item.category || '')));
-        modal.classList.add('performance-report-fullscreen');
-        subjectsBox.style.display = 'none';
-        details.innerHTML = `<div style="border:1px solid #cfe3dc;border-radius:12px;padding:16px;background:#fff"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3 style="margin:0;color:#153d2e">${title}</h3><button type="button" class="btn btn-outline" onclick="window.print()">Print</button></div>${filtered.length ? `<table style="width:100%;border-collapse:collapse"><thead><tr><th style="border:1px solid #9fb4aa;padding:9px;text-align:left">Item</th><th style="border:1px solid #9fb4aa;padding:9px;text-align:left">Details</th><th style="border:1px solid #9fb4aa;padding:9px;text-align:left">Date</th></tr></thead><tbody>${filtered.map(item => `<tr><td style="border:1px solid #9fb4aa;padding:9px">${escReport(item.assessmentItem || item.skill || '-')}</td><td style="border:1px solid #9fb4aa;padding:9px">${escReport(item.learningOutcome || '-')}</td><td style="border:1px solid #9fb4aa;padding:9px">${escReport(item.performanceDate || '-')}</td></tr>`).join('')}</tbody></table>` : '<p>No records have been added for this report yet.</p>'}</div>`;
-        return;
-    }
-    subjectsBox.innerHTML = subjects.length ? subjects.map(subject => `<button type="button" class="btn btn-outline" data-report-subject="${escReport(subject)}">${escReport(subject)}</button>`).join('') : '<p>No subjects/performance records found for this student.</p>';
-    subjectsBox.querySelectorAll('[data-report-subject]').forEach(button => button.onclick = () => showSubject(button.dataset.reportSubject));
-}
 
+    const yearInput=document.getElementById('examReportYear')?.value||'';
+    const selectedYear=String(yearInput||'');
+    const selectedType=document.getElementById('examReportType')?.value||'Mid Term';
+    const apiBase=typeof getApiBaseUrl==='function'?getApiBaseUrl():'/api';
+    const normalizeReportName=value=>String(value||'').trim().toLowerCase().replace(/\s+/g,' ');
+    let examResults=Array.isArray(studentExamReportRecords)?studentExamReportRecords.filter(record=>String(record.studentId||'')===String(student.id||'')||(normalizeReportName(record.studentName)&&normalizeReportName(record.studentName)===normalizeReportName(student.fullName))):[];
+    if(!examResults.length){try{const response=await fetch(apiBase+'/student-results?studentId='+encodeURIComponent(student.id||''));const data=await response.json();if(response.ok&&data.success)examResults=Array.isArray(data.results)?data.results:[];}catch(_){}}
+    let localMarks=[];try{localMarks=JSON.parse(localStorage.getItem('eduCore_student_skill_performance')||'[]').filter(record=>String(record.studentId)===String(student.id)||normalizeReportName(record.studentName)===normalizeReportName(student.fullName));}catch(_){}
+    const resultMarks=examResults.flatMap(result=>{const year=String(result.examYear||result.session||String(result.performanceDate||'').slice(0,4));const type=String(result.examType||result.examName||'Mid Term');const subjects=Array.isArray(result.subjects)&&result.subjects.length?result.subjects:(result.subject?[result]:[]);return subjects.filter(item=>item.subject&&item.obtainedMarks!=null&&item.obtainedMarks!=='').map(item=>({...result,...item,examYear:year,examType:type}));});
+    const examRowsByKey=new Map();
+    [...resultMarks,...localMarks].forEach(result=>{
+        if(!result.subject||result.obtainedMarks==null||result.obtainedMarks==='')return;
+        const year=String(result.examYear||result.session||String(result.performanceDate||'').slice(0,4));
+        const type=String(result.examType||result.examName||'Mid Term');
+        if((selectedYear&&year!==selectedYear)||type.trim().toLowerCase()!==selectedType.trim().toLowerCase())return;
+        const key=[result.studentId||student.id,normalizeReportName(result.subject),type.toLowerCase(),year].join('|');
+        if(!examRowsByKey.has(key))examRowsByKey.set(key,{...result,examYear:year,examType:type});
+    });
+    const examRows=[...examRowsByKey.values()].sort((a,b)=>String(a.subject).localeCompare(String(b.subject),undefined,{sensitivity:'base'}));
+    const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const branding=typeof getBrandingSettings==='function'?getBrandingSettings():{};
+    const schoolName=branding.schoolName||branding.schoolTitle||'Green Land Model School Jand';
+    const logoSrc=typeof getBrandingLogoSrc==='function'?getBrandingLogoSrc():'images/logo.jpeg';
+    const obtainedTotal=examRows.reduce((sum,row)=>sum+(Number(row.obtainedMarks)||0),0);
+    const marksTotal=examRows.reduce((sum,row)=>sum+(Number(row.totalMarks)||0),0);
+    const overallPercentage=marksTotal>0?Math.round(obtainedTotal/marksTotal*100):null;
+    const overallGrade=overallPercentage==null?'-':overallPercentage>=90?'A+':overallPercentage>=80?'A':overallPercentage>=70?'B':overallPercentage>=60?'C':overallPercentage>=50?'D':'F';
+    const examLabel=selectedType;
+    const examsModal=document.createElement('div');examsModal.className='exam-report-overlay';
+    examsModal.innerHTML=`<style>
+        .exam-report-overlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(13,25,38,.72)}
+        .exam-report-card{box-sizing:border-box;position:relative;isolation:isolate;width:min(1050px,calc(100vw - 36px));max-height:94vh;overflow:auto;background:#fff;border:1px solid #172b43;border-radius:8px;box-shadow:0 24px 70px rgba(0,0,0,.32);padding:22px 28px 28px;color:#182638;font-family:Arial,sans-serif}
+        .exam-report-card:before,.exam-report-card:after{content:"";position:absolute;z-index:0;pointer-events:none}.exam-report-card:before{top:0;right:0;width:104px;height:116px;background:#75b82a;clip-path:polygon(28% 0,100% 0,100% 100%,75% 74%)}.exam-report-card:after{left:0;bottom:0;width:112px;height:120px;background:#102741;clip-path:polygon(0 0,27% 25%,100% 100%,0 100%)}.exam-report-card>*:not(style){position:relative;z-index:1}
+        .exam-report-actions{position:sticky;top:-22px;z-index:3;display:flex;justify-content:flex-end;gap:8px;margin:-22px -28px 8px;padding:10px 18px;background:rgba(255,255,255,.97);border-bottom:1px solid #e5e8e7}.exam-report-actions button{min-width:82px;min-height:36px;padding:0 14px;border:1px solid #cbd4dc;border-radius:5px;background:#fff;color:#17304a;font-weight:700;cursor:pointer}.exam-report-actions .exam-report-print{background:#12634b;color:#fff;border-color:#12634b}
+        .exam-report-heading{display:flex;align-items:center;justify-content:center;gap:14px;text-align:left;padding:12px 18px 17px;border-bottom:3px solid #152b44}.exam-report-heading img{width:68px;height:68px;object-fit:contain;border-radius:10px;background:#fbfaef}.exam-report-heading h1{font-family:Arial,sans-serif;font-size:clamp(23px,3vw,32px);font-weight:800;letter-spacing:.025em;margin:0 0 5px;color:#172b42}.exam-report-heading p{margin:0;color:#526476;font-weight:700;letter-spacing:.17em;text-transform:uppercase;font-size:11px}
+        .exam-report-student{display:grid;grid-template-columns:1.4fr 1fr 1.2fr;gap:0 20px;margin:14px 0 16px;padding:8px 12px;border:1px solid #bfc9ce;border-radius:3px;background:#fff}.exam-report-student div{min-width:0;padding:6px 2px;border-bottom:1px solid #e2e6e7;font-size:13px;line-height:1.35;color:#1e2d3b}.exam-report-student div:nth-last-child(-n+3){border-bottom:0}.exam-report-student b{display:block;color:#596a79;font-size:9px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+        .exam-report-section-title{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:15px 0 8px}.exam-report-section-title h2{margin:0;font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:#1a3047}.exam-report-section-title span{color:#687889;font-size:11px}
+        .exam-report-table-wrap{overflow-x:auto;border:1px solid #aebac1}.exam-report-table{width:100%;min-width:790px;border-collapse:collapse;table-layout:fixed;font-size:12px}.exam-report-table th{background:#e9edf0;color:#23374b;text-transform:uppercase;font-size:9px;letter-spacing:.06em}.exam-report-table th,.exam-report-table td{padding:9px 10px;border:1px solid #aebac1;text-align:left;white-space:nowrap}.exam-report-table th:first-child,.exam-report-table td:first-child{width:25%}.exam-report-table tbody tr:nth-child(even){background:#f7f8f8}.exam-report-table td:first-child{font-weight:700;color:#1b3044}.exam-report-table tfoot{background:#e6f0e8;font-weight:700;color:#1e4432}.exam-report-table tfoot td{border:1px solid #879b8f}
+        .exam-report-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px;border:1px solid #9fadb5;background:#fff}.exam-report-summary div{padding:9px 12px;border-right:1px solid #c8d0d4}.exam-report-summary div:last-child{border-right:0}.exam-report-summary b{display:block;color:#5c6c7a;font-size:9px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}.exam-report-summary strong{font-size:17px;color:#1a344c}.exam-report-summary .grade strong{color:#866420}.exam-report-feedback{margin-top:20px}.exam-report-feedback h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#364c5f}.exam-report-feedback div{height:22px;border-bottom:1px solid #c8d0d4}.exam-report-signatures{display:grid;grid-template-columns:1fr 1fr;gap:90px;margin:40px 34px 10px;text-align:center;font-size:11px;color:#35495a}.exam-report-signatures span{border-top:1px solid #465664;padding-top:7px}
+        @media(max-width:680px){.exam-report-overlay{padding:6px}.exam-report-card{width:calc(100vw - 12px);max-height:97vh;padding:16px 12px 22px;border-radius:6px}.exam-report-actions{top:-16px;margin:-16px -12px 6px;padding:8px 10px}.exam-report-heading img{width:54px;height:54px}.exam-report-heading{gap:9px;padding:10px 4px 12px}.exam-report-heading h1{font-size:20px}.exam-report-heading p{font-size:9px}.exam-report-student{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px;padding:6px 9px}.exam-report-student div:nth-last-child(-n+3){border-bottom:1px solid #e2e6e7}.exam-report-student div:nth-last-child(-n+2){border-bottom:0}.exam-report-summary strong{font-size:14px}.exam-report-summary div{padding:8px 6px}.exam-report-signatures{gap:24px;margin:34px 8px 8px}}
+        @page{size:A4 portrait;margin:5mm}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}html,body{width:100%;height:100%;margin:0!important;padding:0!important}body>*:not(.exam-report-overlay){display:none!important}.exam-report-overlay{position:static!important;display:block!important;padding:0!important;background:#fff!important}.exam-report-card{width:100%!important;max-width:none!important;height:287mm!important;min-height:287mm!important;max-height:none!important;display:flex!important;flex-direction:column!important;overflow:visible!important;padding:9mm!important;border:1px solid #172b43!important;border-radius:0!important;box-shadow:none!important}.exam-report-card:before{width:72px;height:82px}.exam-report-card:after{width:78px;height:84px}.exam-report-actions{display:none!important}.exam-report-heading{padding:8px 12px 12px}.exam-report-heading img{width:58px;height:58px}.exam-report-student{margin:10px 0;padding:5px 9px}.exam-report-student div{padding:4px 2px;font-size:10px}.exam-report-student b{font-size:8px}.exam-report-section-title{margin:10px 0 5px}.exam-report-table-wrap{overflow:visible!important}.exam-report-table{min-width:0!important;width:100%!important;font-size:9px!important;table-layout:fixed!important}.exam-report-table th,.exam-report-table td{padding:7px 6px!important;white-space:normal!important;overflow-wrap:anywhere}.exam-report-table th:first-child,.exam-report-table td:first-child{width:24%}.exam-report-summary{margin-top:11px}.exam-report-summary div{padding:8px 10px}.exam-report-summary strong{font-size:14px}.exam-report-feedback{margin-top:15px}.exam-report-feedback div{height:20px}.exam-report-signatures{margin-top:auto!important;padding-top:35px;break-inside:avoid}thead{display:table-header-group}tr{break-inside:avoid}}
+    </style><article class="exam-report-card"><div class="exam-report-actions"><button type="button" id="closeExamsReport">Close</button><button type="button" class="exam-report-print" id="printExamsReport">Print</button></div><header class="exam-report-heading"><img src="${esc(logoSrc)}" alt="${esc(schoolName)} logo"><div><h1>REPORT CARD</h1><p>${esc(schoolName)}</p></div></header><section class="exam-report-student"><div><b>Student Name</b>${esc(student.fullName||'Student')}</div><div><b>Student ID</b>${esc(student.studentCode||student.rollNo||'-')}</div><div><b>Father Name</b>${esc(student.fatherName||'-')}</div><div><b>Class</b>${esc(student.classGrade||'-')}</div><div><b>Section</b>${esc(student.section||'General')}</div><div><b>School Year / Exam</b>${esc(selectedYear||'All Years')} / ${esc(examLabel)}</div></section>${examRows.length?`<div class="exam-report-section-title"><h2>Subject Results</h2><span>${examRows.length} subjects recorded</span></div><div class="exam-report-table-wrap"><table class="exam-report-table"><thead><tr><th>Subject</th><th>Obtained Marks</th><th>Total Marks</th><th>Percentage</th><th>Grade</th></tr></thead><tbody>${examRows.map(row=>`<tr><td>${esc(row.subject||'-')}</td><td>${esc(row.obtainedMarks??'-')}</td><td>${esc(row.totalMarks??'-')}</td><td>${row.percentage==null?'-':`${Math.round(Number(row.percentage))}%`}</td><td>${esc(row.grade||'-')}</td></tr>`).join('')}</tbody><tfoot><tr><td>All Subjects</td><td>${obtainedTotal}</td><td>${marksTotal}</td><td>${overallPercentage==null?'-':`${overallPercentage}%`}</td><td>${overallGrade}</td></tr></tfoot></table></div><section class="exam-report-summary"><div><b>Obtained Marks</b><strong>${obtainedTotal}</strong></div><div><b>Total Marks</b><strong>${marksTotal}</strong></div><div><b>Percentage</b><strong>${overallPercentage==null?'-':`${overallPercentage}%`}</strong></div><div class="grade"><b>Overall Grade</b><strong>${overallGrade}</strong></div></section>`:'<p>No exam marks found for the selected year and exam type.</p>'}<section class="exam-report-feedback"><h3>Teacher Feedback</h3><div></div><div></div></section><div class="exam-report-signatures"><span>Class Teacher Signature</span><span>Principal Signature</span></div></article>`;
+    document.body.appendChild(examsModal);
+    examsModal.querySelector('#closeExamsReport').onclick=()=>examsModal.remove();
+    examsModal.querySelector('#printExamsReport').onclick=()=>window.print();
+    examsModal.addEventListener('click',event=>{if(event.target===examsModal)examsModal.remove();});
+    return;
+}
 function buildStudentFullPortfolioReport(student, records, esc) {
     const standardSubjects = ['English', 'Urdu', 'Mathematics', 'Science', 'Social Study', 'Islamiyat', 'Nazra'];
     const reportOnlySubjects = new Set(['co-curriculum', 'co curriculum', 'participation']);
@@ -7366,7 +7342,39 @@ function runStudentSearchFromInput(inputElement) {
     }
 }
 
-function renderStudents(term = '') {
+async function loadStudentExamReportRecords() {
+    const apiBase = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : '/api';
+    try {
+        const response = await fetch(`${apiBase}/student-results`);
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || 'Exam records could not be loaded.');
+        let savedMarks = [];
+        try { savedMarks = JSON.parse(localStorage.getItem('eduCore_student_skill_performance') || '[]'); } catch (_) {}
+        const resultMarks = (Array.isArray(data.results) ? data.results : []).flatMap(result => {
+            const year = String(result.examYear || result.session || String(result.performanceDate || '').slice(0, 4));
+            const type = String(result.examType || result.examName || 'Mid Term');
+            const subjects = Array.isArray(result.subjects) && result.subjects.length
+                ? result.subjects
+                : (result.subject ? [result] : []);
+            return subjects.filter(subject => subject.subject && subject.obtainedMarks != null && subject.obtainedMarks !== '')
+                .map(subject => ({ ...result, ...subject, examYear: year, examType: type, skill: '__subject_marks__' }));
+        });
+        const byId = new Map();
+        [...savedMarks, ...resultMarks].forEach(record => {
+            if (record?.studentId && record?.subject && record?.obtainedMarks != null && record?.obtainedMarks !== '') {
+                const id = String(record.id || `${record.studentId}-${record.subject}-${record.examType}-${record.examYear}`);
+                byId.set(id, { ...record, skill: '__subject_marks__' });
+            }
+        });
+        studentExamReportRecords = [...byId.values()];
+    } catch (error) {
+        studentExamReportRecords = [];
+        console.warn('Exam report records could not be loaded:', error);
+    }
+    if (window.location.hash === '#status') renderStudents();
+}
+
+function renderStudents(term) {
     const tbody = document.getElementById('studentTableBody');
     if (!tbody) return;
 
@@ -7415,7 +7423,7 @@ function renderStudents(term = '') {
     }
 
     const students = getArrayData(STORAGE_KEY_STUDENTS);
-    const filtered = students.filter(s =>
+    let filtered = students.filter(s =>
         (
             !activeSearchTerm ||
             (columnSearch
@@ -7442,6 +7450,24 @@ function renderStudents(term = '') {
         !isStudentTerminated(s)
     );
 
+    if (window.location.hash === '#status' && Array.isArray(studentExamReportRecords)) {
+        const selectedYear = String(document.getElementById('examReportYear')?.value || '');
+        const selectedType = String(document.getElementById('examReportType')?.value || 'Mid Term').toLowerCase();
+        const matchingRecords = studentExamReportRecords
+            .filter(record => {
+                if (!record.studentId || !record.subject || record.obtainedMarks == null || record.obtainedMarks === '') return false;
+                const recordYear = String(record.examYear || record.session || String(record.performanceDate || '').slice(0, 4));
+                const recordType = String(record.examType || record.examName || '').trim().toLowerCase();
+                return (!selectedYear || recordYear === selectedYear) &&
+                    recordType === selectedType.trim().toLowerCase();
+            });
+        const normalizeStudentName = value => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        filtered = filtered.filter(student => matchingRecords.some(record =>
+            String(record.studentId || '') === String(student.id || '') ||
+            (normalizeStudentName(record.studentName) && normalizeStudentName(record.studentName) === normalizeStudentName(student.fullName))
+        ));
+    }
+
     // Update total count display - Use filtered results length as requested
     const totalCountEl = document.getElementById('totalStudentCount');
     if (totalCountEl) totalCountEl.innerText = filtered.length;
@@ -7451,7 +7477,9 @@ function renderStudents(term = '') {
 
     if (filtered.length === 0) {
         if (noData) {
-            noData.textContent = activeSearchTerm ? 'No record found.' : 'No students found. Add one to get started!';
+            noData.textContent = window.location.hash === '#status'
+                ? (activeSearchTerm ? 'No matching student found for this search and exam filter.' : 'No students have marks for this year and exam type.')
+                : (activeSearchTerm ? 'No record found.' : 'No students found. Add one to get started!');
             noData.style.display = 'block';
         }
     } else {
@@ -7501,34 +7529,7 @@ function renderStudents(term = '') {
 }
 
 function toggleStudentReportMenu(button, encodedStudent) {
-    document.querySelectorAll('.student-report-menu').forEach(menu => menu.remove());
-    const menu = document.createElement('div');
-    menu.className = 'student-report-menu';
-    menu.innerHTML = '<button type="button" data-report-mode="subject">Subject Wise Report</button><button type="button" data-report-mode="full">Full Report</button>';
-    document.body.appendChild(menu);
-    const buttonRect = button.getBoundingClientRect();
-    menu.style.left = `${Math.max(8, buttonRect.right - 180)}px`;
-    menu.style.top = `${buttonRect.bottom + 6}px`;
-    requestAnimationFrame(() => {
-        const menuRect = menu.getBoundingClientRect();
-        if (menuRect.bottom > window.innerHeight - 8) {
-            menu.style.top = `${Math.max(8, buttonRect.top - menuRect.height - 6)}px`;
-        }
-    });
-    menu.querySelector('[data-report-mode="subject"]').onclick = () => {
-        menu.remove();
-        openStudentPerformanceReportFromEncoded(encodedStudent, 'subject');
-    };
-    menu.querySelector('[data-report-mode="full"]').onclick = () => {
-        menu.remove();
-        openStudentPerformanceReportFromEncoded(encodedStudent, 'full');
-    };
-    setTimeout(() => document.addEventListener('click', function closeMenu(event) {
-        if (!menu.contains(event.target) && event.target !== button) {
-            menu.remove();
-            document.removeEventListener('click', closeMenu);
-        }
-    }, { once: true }), 0);
+    openStudentPerformanceReportFromEncoded(encodedStudent);
 }
 
 function showAdminRecordsSection(sectionKey = '') {
@@ -8284,14 +8285,18 @@ function populateStudentQuickFilterOptions() {
         });
 
     const classes = Array.from(classMap.values()).sort(compareStudentClassNames);
-    students.forEach((student) => {
-        const section = String(student?.section || 'General').trim() || 'General';
-        if (!sectionMap.has(section.toLowerCase())) sectionMap.set(section.toLowerCase(), section);
-    });
+    if (window.location.hash === '#status') {
+        ['A', 'B', 'C'].forEach(section => sectionMap.set(section.toLowerCase(), section));
+    } else {
+        students.forEach((student) => {
+            const section = String(student?.section || 'General').trim() || 'General';
+            if (!sectionMap.has(section.toLowerCase())) sectionMap.set(section.toLowerCase(), section);
+        });
+    }
     const sections = Array.from(sectionMap.values()).sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
     const performanceClassFilter = window.location.hash === '#status';
     const signature = [
-        performanceClassFilter ? 'filters:v6-performance-class-list' : 'filters:v5-simple-student-lists',
+        performanceClassFilter ? 'filters:v7-performance-class-section-list' : 'filters:v5-simple-student-lists',
         `classes:${classes.map((name) => String(name || '').toLowerCase()).join('|')}`,
         `sections:${sections.map((name) => String(name || '').toLowerCase()).join('|')}`
     ].join('||');
@@ -8299,7 +8304,7 @@ function populateStudentQuickFilterOptions() {
 
     if (needsRebuild) {
         quickFilter.innerHTML = performanceClassFilter
-            ? '<option value="all">All Classes</option>'
+            ? '<option value="all">All Students</option>'
             : '<option value="all">All Students</option><option value="gender:Male">Male Students</option><option value="gender:Female">Female Students</option><option value="zero-fee">Zero Fee Students</option><option value="age:below5">Below 5 Years Students</option>';
 
         if (classes.length) {
@@ -8314,7 +8319,7 @@ function populateStudentQuickFilterOptions() {
             quickFilter.appendChild(classGroup);
         }
 
-        if (!performanceClassFilter && sections.length) {
+        if (sections.length) {
             const sectionGroup = document.createElement('optgroup');
             sectionGroup.label = 'Section Wise List';
             sections.forEach((section) => {

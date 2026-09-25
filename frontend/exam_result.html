@@ -462,63 +462,53 @@
                 </div>
             </section>
 
-            <section class="exam-content-section" id="resultHistoryCard">
+            <section class="exam-content-section active" id="resultHistoryCard">
                 <section class="table-container exam-builder-panel">
                     <div class="exam-info-card">
                         <div class="exam-info-copy">
-                            <span class="exam-info-tag">Students Result History</span>
-                            <h3>Track student performance across terms</h3>
-                            <p>View all saved result cards, reload them into the builder, and manage the result archive for every student.</p>
+                            <span class="exam-info-tag">Result Schedule History</span>
+                            <h3>Manage portal result release times</h3>
+                            <p>Review, edit, or remove the scheduled date and time for each class exam result.</p>
                         </div>
                         <div class="exam-info-icon">
                             <i data-lucide="folders"></i>
                         </div>
                     </div>
 
-                    <div class="result-schedule-panel">
+                    <div class="result-schedule-panel" id="resultSchedulerPanel">
                         <div>
                             <h4>Portal Result Schedule</h4>
-                            <p>Select campus and class, then set the date when those students can view saved results in their portals.</p>
+                            <p>Choose a campus, class, exam year and type, then set the exact date and time students can view those results.</p>
                         </div>
                         <div class="result-schedule-fields">
-                            <label>Campus<select id="resultScheduleCampus"></select></label>
-                            <label>Class<select id="resultScheduleClass"></select></label>
+                            <label>Campus<select id="resultScheduleCampus"><option value="">Select campus</option><option value="Main Campus">Main Campus</option></select></label>
+                            <label>Class<select id="resultScheduleClass"><option value="">Select class</option><option>Play Group</option><option>Nursery</option><option>Prep</option><option>Class 1</option><option>Class 2</option><option>Class 3</option><option>Class 4</option><option>Class 5</option><option>Class 6</option><option>Class 7</option><option>Class 8</option></select></label>
+                            <label>Result Year<select id="resultScheduleYear"><option>2026</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2021</option><option>2020</option><option>2019</option><option>2018</option><option>2017</option><option>2016</option></select></label>
+                            <label>Result Type<select id="resultScheduleType"><option>Mid Term</option><option>Annual</option><option>Supply</option></select></label>
                             <label>Show On Portal From<input type="date" id="resultPublishDate"></label>
+                            <label>Show Time<input type="time" id="resultPublishTime" value="08:00"></label>
                             <button type="button" class="btn btn-primary" id="saveResultScheduleBtn">
                                 <i data-lucide="calendar-check" size="16"></i> Set Schedule
                             </button>
                         </div>
-                        <div class="result-schedule-list" id="resultScheduleList"></div>
                     </div>
 
-                    <div class="result-history-toolbar">
-                        <input type="text" id="resultHistorySearch" placeholder="Search by student name, ID, class, or term">
-                        <select id="resultHistoryCampusFilter"></select>
-                        <select id="resultHistoryClassFilter"></select>
-                    </div>
-
+                    <h4 class="schedule-history-title">Scheduled Results</h4>
                     <div class="table-container result-history-table-wrap">
                         <table class="result-history-table">
                             <thead>
                                 <tr>
-                                    <th>Student</th>
-                                    <th>Student ID</th>
-                                    <th>Roll No</th>
-                                    <th>Campus</th>
+                                    <th>Year</th>
+                                    <th>Date</th>
                                     <th>Class</th>
-                                    <th>Term</th>
-                                    <th>Total Marks</th>
-                                    <th>Obtained</th>
-                                    <th>Percentage</th>
-                                    <th>Position / Grade</th>
-                                    <th>Status</th>
-                                    <th>Updated</th>
+                                    <th>Time</th>
+                                    <th>Exam Type</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="resultHistoryTableBody"></tbody>
+                            <tbody id="resultScheduleHistoryBody"></tbody>
                         </table>
-                        <div class="empty-state-note" id="resultHistoryEmptyState">No saved result cards yet.</div>
+                        <div class="empty-state-note" id="resultScheduleHistoryEmptyState">No result schedules yet.</div>
                     </div>
                 </section>
             </section>
@@ -752,11 +742,19 @@
 
         .result-history-table-wrap {
             padding: 0;
-            overflow: hidden;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .table-container.result-history-table-wrap {
+            overflow-x: auto !important;
+            overflow-y: hidden;
         }
 
         .result-history-table {
-            width: 100%;
+            width: max-content !important;
+            min-width: 900px !important;
+            table-layout: auto !important;
             border-collapse: collapse;
         }
 
@@ -774,6 +772,13 @@
             text-transform: uppercase;
             letter-spacing: 0.03em;
             color: var(--text-secondary);
+            white-space: nowrap !important;
+            overflow-wrap: normal !important;
+            word-break: normal !important;
+        }
+
+        .schedule-history-title {
+            margin: 1.25rem 0 0.75rem;
         }
 
         .result-history-actions {
@@ -1743,6 +1748,8 @@
         const RESULT_PUBLISH_SCHEDULE_KEY = 'APEXIUMS_RESULT_PUBLISH_SCHEDULE_V1';
         const RESULT_CARD_STUDENT_KEY = 'eduCore_students';
         const API_BASE_URL = '/api';
+        let RESULT_SCHEDULER_CLASS_OPTIONS = [];
+        let RESULT_SCHEDULER_CAMPUS_OPTIONS = [];
         const defaultScheduleRows = [];
         const defaultSubjects = [];
         const defaultBehaviors = [];
@@ -2237,63 +2244,115 @@
             localStorage.setItem(RESULT_PUBLISH_SCHEDULE_KEY, JSON.stringify(schedules));
         }
 
+        async function refreshResultPublishSchedules() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/result-publish-schedules`, { cache: 'no-store' });
+                const result = await response.json().catch(() => ({}));
+                if (response.ok && Array.isArray(result.schedules)) {
+                    const remoteIds = new Set(result.schedules.map((item) => String(item.id || '')));
+                    const cachedOnly = loadResultPublishSchedules().filter((item) => !remoteIds.has(String(item.id || '')));
+                    saveResultPublishSchedules([...result.schedules, ...cachedOnly]);
+                    for (const item of cachedOnly) {
+                        try { await syncResultPublishSchedule(item); } catch (_error) { /* Keep the saved local schedule for retry. */ }
+                    }
+                }
+            } catch (_error) { /* Use the cached schedules while the API is offline. */ }
+            renderResultScheduleList();
+            renderResultHistoryList(document.getElementById('resultHistorySearch')?.value || '');
+        }
+
+        async function syncResultPublishSchedule(schedule) {
+            const response = await fetch(`${API_BASE_URL}/result-publish-schedules`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(schedule)
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) throw new Error(result.message || 'Result schedule could not be saved to the server.');
+        }
+
+        async function deleteResultPublishSchedule(scheduleId) {
+            const response = await fetch(`${API_BASE_URL}/result-publish-schedules/${encodeURIComponent(scheduleId)}`, { method: 'DELETE' });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) throw new Error(result.message || 'Result schedule could not be deleted.');
+        }
+
         function getResultScheduleForRecord(record = {}) {
             const campus = normalizeResultValue(record.campusName);
             const className = normalizeResultClass(record.studentGrade || record.classGrade);
+            const type = normalizeResultValue(record.termTitle || record.examType || record.examName);
+            const year = String(record.examYear || record.session || '');
             return loadResultPublishSchedules().find((item) => (
                 normalizeResultValue(item.campusName) === campus &&
-                normalizeResultClass(item.classGrade) === className
+                normalizeResultClass(item.classGrade) === className &&
+                (!item.examType || item.examType === 'all' || normalizeResultValue(item.examType) === type) &&
+                (!item.examYear || String(item.examYear) === year)
             )) || null;
         }
 
         function getResultPublishStatus(record = {}) {
             const schedule = getResultScheduleForRecord(record);
             if (!schedule?.publishDate) return 'Not scheduled';
-            const today = new Date().toISOString().slice(0, 10);
-            return schedule.publishDate <= today ? `Published ${schedule.publishDate}` : `Scheduled ${schedule.publishDate}`;
+            const releaseAt = new Date(`${schedule.publishDate}T${schedule.publishTime || '00:00'}:00`);
+            return releaseAt <= new Date() ? `Published ${schedule.publishDate} at ${schedule.publishTime || '00:00'}` : `Scheduled ${schedule.publishDate} at ${schedule.publishTime || '00:00'}`;
         }
 
         function renderResultScheduleList() {
-            const container = document.getElementById('resultScheduleList');
-            if (!container) return;
+            const body = document.getElementById('resultScheduleHistoryBody');
+            const emptyState = document.getElementById('resultScheduleHistoryEmptyState');
+            if (!body || !emptyState) return;
             const schedules = loadResultPublishSchedules();
-            container.innerHTML = schedules.length ? schedules.map((item) => `
-                <div class="result-schedule-item">
-                    <div>
-                        <strong>${escapeHtml(item.campusName || '-')} / ${escapeHtml(item.classGrade || '-')}</strong>
-                        <span>Portal show date: ${escapeHtml(item.publishDate || '-')}</span>
-                    </div>
-                    <button type="button" class="btn btn-outline result-schedule-delete" data-schedule-id="${escapeHtml(item.id || '')}">Delete</button>
-                </div>
-            `).join('') : '<div class="empty-state-note">No portal result schedule has been set yet.</div>';
+            body.innerHTML = schedules.map((item) => `
+                <tr>
+                    <td>${escapeHtml(item.examYear || '-')}</td>
+                    <td>${escapeHtml(item.publishDate || '-')}</td>
+                    <td>${escapeHtml(item.classGrade || '-')}</td>
+                    <td>${escapeHtml(item.publishTime || '-')}</td>
+                    <td>${escapeHtml(item.examType || '-')}</td>
+                    <td><div class="result-history-actions">
+                        <button type="button" class="btn btn-outline result-schedule-edit" data-schedule-id="${escapeHtml(item.id || '')}">Edit</button>
+                        <button type="button" class="btn btn-outline result-schedule-delete" data-schedule-id="${escapeHtml(item.id || '')}">Delete</button>
+                    </div></td>
+                </tr>
+            `).join('');
+            emptyState.style.display = schedules.length ? 'none' : 'block';
         }
 
-        function saveResultPortalSchedule() {
+        async function saveResultPortalSchedule() {
             const campusName = document.getElementById('resultScheduleCampus')?.value.trim() || '';
             const classGrade = document.getElementById('resultScheduleClass')?.value.trim() || '';
             const publishDate = document.getElementById('resultPublishDate')?.value || '';
+            const publishTime = document.getElementById('resultPublishTime')?.value || '';
+            const examYear = document.getElementById('resultScheduleYear')?.value || '';
+            const examType = document.getElementById('resultScheduleType')?.value || '';
 
-            if (!campusName || !classGrade || !publishDate) {
-                alert('Select campus, class, and portal show date first.');
+            if (!campusName || !classGrade || !publishDate || !publishTime || !examYear || !examType) {
+                alert('Select campus, class, result year, result type, release date, and release time first.');
                 return;
             }
 
             const schedules = loadResultPublishSchedules();
             const existingIndex = schedules.findIndex((item) => (
                 normalizeResultValue(item.campusName) === normalizeResultValue(campusName) &&
-                normalizeResultClass(item.classGrade) === normalizeResultClass(classGrade)
+                normalizeResultClass(item.classGrade) === normalizeResultClass(classGrade) &&
+                String(item.examYear || '') === examYear && normalizeResultValue(item.examType) === normalizeResultValue(examType)
             ));
             const record = {
-                id: `${normalizeResultValue(campusName)}__${normalizeResultClass(classGrade)}`,
+                id: `${normalizeResultValue(campusName)}__${normalizeResultClass(classGrade)}__${examYear}__${normalizeResultValue(examType).replace(/[^a-z0-9]+/g, '-')}`,
                 campusName,
                 classGrade,
+                examYear,
+                examType,
                 publishDate,
+                publishTime,
                 updatedAt: new Date().toISOString()
             };
 
             if (existingIndex >= 0) schedules[existingIndex] = { ...schedules[existingIndex], ...record };
             else schedules.unshift(record);
 
+            try { await syncResultPublishSchedule(record); }
+            catch (error) { alert(error.message); return; }
             saveResultPublishSchedules(schedules);
             renderResultScheduleList();
             renderResultHistoryList(document.getElementById('resultHistorySearch')?.value || '');
@@ -2423,11 +2482,21 @@
         function populateResultPageSelectors() {
             const students = readResultStudents();
             const archived = loadResultArchive();
+            let registeredClasses = [];
+            try {
+                const savedClasses = JSON.parse(localStorage.getItem('eduCore_classes') || '[]');
+                if (Array.isArray(savedClasses)) {
+                    registeredClasses = savedClasses.map((item) => item?.name || item?.className || item?.classGrade || '').filter(Boolean);
+                }
+            } catch (_error) { /* Continue with student records when the class cache is unavailable. */ }
             const campuses = getUniqueValues([
+                'Main Campus',
+                ...RESULT_SCHEDULER_CAMPUS_OPTIONS,
                 ...students.map(getStudentCampus),
                 ...archived.map((record) => record.campusName)
             ]);
-            const classes = getUniqueValues([
+            const classes = getUniqueValues([...registeredClasses,
+                ...RESULT_SCHEDULER_CLASS_OPTIONS,
                 ...students.map(getStudentClass),
                 ...archived.map((record) => record.studentGrade || record.classGrade)
             ]);
@@ -2437,9 +2506,61 @@
             setSelectOptions('resultClassFilter', classes, 'All classes');
             setSelectOptions('resultScheduleCampus', campuses, 'Select campus');
             setSelectOptions('resultScheduleClass', classes, 'Select class');
+            const yearSelect = document.getElementById('resultScheduleYear');
+            if (yearSelect) {
+                const currentYear = new Date().getFullYear();
+                yearSelect.innerHTML = Array.from({ length: 11 }, (_, index) => `<option value="${currentYear - index}">${currentYear - index}</option>`).join('');
+            }
             setSelectOptions('resultHistoryCampusFilter', campuses, 'All campuses');
             setSelectOptions('resultHistoryClassFilter', classes, 'All classes');
             populateResultStudentSelect();
+        }
+
+        async function loadResultSchedulerOptions() {
+            const currentYear = new Date().getFullYear();
+            const yearSelect = document.getElementById('resultScheduleYear');
+            if (yearSelect) {
+                const previousYear = yearSelect.value;
+                yearSelect.innerHTML = Array.from({ length: 11 }, (_, index) => {
+                    const year = currentYear - index;
+                    return `<option value="${year}">${year}</option>`;
+                }).join('');
+                if (previousYear && [...yearSelect.options].some((option) => option.value === previousYear)) yearSelect.value = previousYear;
+            }
+
+            let students = readResultStudents();
+            let campuses = [];
+            try {
+                const [studentsResponse, branchesResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/students`, { cache: 'no-store' }).catch(() => null),
+                    fetch(`${API_BASE_URL}/branches`, { cache: 'no-store' }).catch(() => null)
+                ]);
+                if (studentsResponse?.ok) {
+                    const payload = await studentsResponse.json().catch(() => []);
+                    const apiStudents = Array.isArray(payload) ? payload : (Array.isArray(payload.students) ? payload.students : []);
+                    if (apiStudents.length) students = apiStudents;
+                }
+                if (branchesResponse?.ok) {
+                    const payload = await branchesResponse.json().catch(() => []);
+                    if (Array.isArray(payload)) campuses = payload.map((branch) => branch?.campusName || '').filter(Boolean);
+                }
+            } catch (_error) { /* Use local records if the API is unavailable. */ }
+
+            let savedClasses = [];
+            try {
+                const payload = JSON.parse(localStorage.getItem('eduCore_classes') || '[]');
+                if (Array.isArray(payload)) savedClasses = payload.map((item) => item?.name || item?.className || item?.classGrade || '').filter(Boolean);
+            } catch (_error) { /* Use student class values as a fallback. */ }
+
+            const classes = getUniqueValues([
+                ...savedClasses,
+                ...students.map(getStudentClass),
+                'Play Group', 'Nursery', 'Prep', ...Array.from({ length: 8 }, (_, index) => `Class ${index + 1}`)
+            ]);
+            campuses = getUniqueValues(['Main Campus', ...campuses, ...students.map(getStudentCampus)]);
+            RESULT_SCHEDULER_CLASS_OPTIONS = classes;
+            RESULT_SCHEDULER_CAMPUS_OPTIONS = campuses;
+            populateResultPageSelectors();
         }
 
         function populateResultStudentSelect() {
@@ -2605,10 +2726,24 @@
             refreshResultCardPreview();
         }
 
+        try {
+            populateResultPageSelectors();
+            loadResultSchedulerOptions();
+        } catch (error) {
+            console.error('Result scheduler dropdowns could not be initialized:', error);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             clearLegacyResultArchive();
-            const initialSectionId = window.location.hash === '#resultHistoryCard' ? 'resultHistoryCard' : 'resultBuilderCard';
+            const initialSectionId = ['#resultHistoryCard', '#resultSchedulerPanel'].includes(window.location.hash)
+                ? 'resultHistoryCard'
+                : 'resultBuilderCard';
             toggleExamSection(initialSectionId);
+            populateResultPageSelectors();
+            loadResultSchedulerOptions();
+            if (window.location.hash === '#resultSchedulerPanel') {
+                document.getElementById('resultSchedulerPanel')?.scrollIntoView({ block: 'start' });
+            }
             const dateSheetState = loadDateSheetState();
             const savedState = loadResultCardState();
             renderScheduleRows(dateSheetState);
@@ -2656,7 +2791,7 @@
                 }
             });
             document.getElementById('saveResultCardBtn').addEventListener('click', saveCurrentResultToArchive);
-            document.getElementById('resultHistorySearch').addEventListener('input', (event) => {
+            document.getElementById('resultHistorySearch')?.addEventListener('input', (event) => {
                 renderResultHistoryList(event.target.value);
             });
             document.getElementById('resultHistoryCampusFilter')?.addEventListener('change', () => {
@@ -2666,15 +2801,34 @@
                 renderResultHistoryList(document.getElementById('resultHistorySearch')?.value || '');
             });
             document.getElementById('saveResultScheduleBtn')?.addEventListener('click', saveResultPortalSchedule);
-            document.getElementById('resultScheduleList')?.addEventListener('click', (event) => {
-                const button = event.target.closest('.result-schedule-delete');
+            document.getElementById('resultScheduleHistoryBody')?.addEventListener('click', (event) => {
+                const button = event.target.closest('.result-schedule-edit, .result-schedule-delete');
                 if (!button) return;
                 const scheduleId = button.dataset.scheduleId || '';
-                saveResultPublishSchedules(loadResultPublishSchedules().filter((item) => String(item.id) !== String(scheduleId)));
-                renderResultScheduleList();
-                renderResultHistoryList(document.getElementById('resultHistorySearch')?.value || '');
+                const schedule = loadResultPublishSchedules().find((item) => String(item.id) === String(scheduleId));
+                if (button.classList.contains('result-schedule-edit')) {
+                    if (!schedule) return;
+                    const campusSelect = document.getElementById('resultScheduleCampus');
+                    const classSelect = document.getElementById('resultScheduleClass');
+                    const yearSelect = document.getElementById('resultScheduleYear');
+                    ensureSelectOption(campusSelect, schedule.campusName || '');
+                    ensureSelectOption(classSelect, schedule.classGrade || '');
+                    ensureSelectOption(yearSelect, String(schedule.examYear || ''));
+                    campusSelect.value = schedule.campusName || '';
+                    classSelect.value = schedule.classGrade || '';
+                    yearSelect.value = String(schedule.examYear || '');
+                    document.getElementById('resultScheduleType').value = schedule.examType || 'Mid Term';
+                    document.getElementById('resultPublishDate').value = schedule.publishDate || '';
+                    document.getElementById('resultPublishTime').value = schedule.publishTime || '08:00';
+                    document.getElementById('resultSchedulerPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    return;
+                }
+                deleteResultPublishSchedule(scheduleId).then(() => {
+                    saveResultPublishSchedules(loadResultPublishSchedules().filter((item) => String(item.id) !== String(scheduleId)));
+                    renderResultScheduleList();
+                }).catch((error) => alert(error.message));
             });
-            document.getElementById('resultHistoryTableBody').addEventListener('click', (event) => {
+            document.getElementById('resultHistoryTableBody')?.addEventListener('click', (event) => {
                 const button = event.target.closest('.result-history-btn');
                 if (!button) return;
 
@@ -2709,6 +2863,7 @@
             document.getElementById('resetResultCardBtn').addEventListener('click', resetResultCard);
             renderResultScheduleList();
             renderResultHistoryList();
+            refreshResultPublishSchedules();
             lucide.createIcons();
         });
     </script>

@@ -12,7 +12,13 @@
     <style>
         body.students-status-view #studentsTable th:nth-child(4), body.students-status-view #studentsTable td:nth-child(4),
         body.students-status-view #studentsTable th:nth-child(7), body.students-status-view #studentsTable td:nth-child(7),
-        body.students-status-view #studentsTable th:nth-child(8), body.students-status-view #studentsTable td:nth-child(8) { display: none; }
+        body.students-status-view #studentsTable th:nth-child(8), body.students-status-view #studentsTable td:nth-child(8),
+        body.students-status-view #studentsTable th:nth-child(9), body.students-status-view #studentsTable td:nth-child(9) { display: none; }
+        body.students-status-view .student-toolbar-left{display:grid;grid-template-columns:minmax(115px,auto) repeat(4,minmax(145px,1fr));align-items:end;gap:12px;width:100%}
+        body.students-status-view .student-stat{min-width:0;white-space:nowrap}
+        body.students-status-view .student-filter-group{width:auto;min-width:0;max-width:none;flex:initial}
+        body.students-status-view .student-toolbar>.student-add-btn{display:none!important}
+        @media(max-width:900px){body.students-status-view .student-toolbar-left{grid-template-columns:repeat(2,minmax(0,1fr))}body.students-status-view .student-stat{grid-column:1/-1}}
         .performance-report-fullscreen{align-items:stretch!important;justify-content:stretch!important;padding:0!important}.performance-report-fullscreen>div{width:100%!important;max-width:none!important;max-height:none!important;height:100vh!important;border-radius:0!important;box-sizing:border-box;padding:28px 5vw!important}.performance-report-fullscreen #performanceReportSubjects{display:none!important}
         /* Specific Basic Styles for the Form Modal/Section */
         .form-container {
@@ -1224,6 +1230,7 @@
                         <div class="student-search-control">
                             <i data-lucide="search"></i>
                             <input type="text" id="studentSearchInput" placeholder="Search"
+                                autocomplete="off"
                                 oninput="runStudentSearchFromInput(this)"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();runStudentSearchFromInput(this);}">
                         </div>
@@ -1233,12 +1240,24 @@
                         <div class="student-multifilter" id="studentQuickFilterMulti">
                             <button class="student-multifilter-trigger" type="button" id="studentQuickFilterTrigger"
                                 aria-haspopup="listbox" aria-expanded="false">
-                                All Classes
+                                All Students
                             </button>
                             <div class="student-multifilter-menu" id="studentQuickFilterMenu" role="listbox"
                                 aria-multiselectable="true"></div>
                             <select id="studentQuickFilter" multiple style="display:none;"></select>
                         </div>
+                    </div>
+                    <div class="student-filter-group exam-report-filter" id="examReportYearFilterWrap" style="display:none">
+                        <label for="examReportYear">Report Year</label>
+                        <select id="examReportYear" class="student-filter-control"></select>
+                    </div>
+                    <div class="student-filter-group exam-report-filter" id="examReportTypeFilterWrap" style="display:none">
+                        <label for="examReportType">Select Exam Type</label>
+                        <select id="examReportType" class="student-filter-control">
+                            <option value="Mid Term">Mid Term</option>
+                            <option value="Annual">Annual</option>
+                            <option value="Supply">Supply</option>
+                        </select>
                     </div>
                     <button class="btn btn-outline student-print-btn" type="button" onclick="printStudentsList()">
                         <i data-lucide="printer"></i> Print
@@ -1445,7 +1464,7 @@
                             <th>Section</th>
                             <th>Campus</th>
                             <th>Gender</th>
-                            <th>Fee Status</th>
+                            <th class="fee-status-column">Fee Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -1532,13 +1551,26 @@
     </div>
 
     <script src="auth.js?v=20260902-single-active-performance"></script>
-    <script src="script.js?v=20260903-performance-class-filter"></script>
+    <script src="script.js?v=20260925-exam-report-cleanup"></script>
     <script>
         if (window.location.hash === '#status') {
             document.body.classList.add('students-status-view');
+            document.title = 'Exams Reports - Green Land Model School Jand';
             const heading = document.getElementById('studentsPageHeading');
-            if (heading) heading.textContent = 'Students Performances';
+            if (heading) heading.textContent = 'Exams Reports';
             document.querySelector('.student-print-btn')?.remove();
+            document.querySelectorAll('.exam-report-filter').forEach(control => { control.style.display = ''; });
+            const yearPicker = document.getElementById('examReportYear');
+            if (yearPicker) {
+                const currentYear = new Date().getFullYear();
+                yearPicker.innerHTML = Array.from({ length: 16 }, (_, index) => {
+                    const year = currentYear - index;
+                    return `<option value="${year}">${year}</option>`;
+                }).join('');
+                yearPicker.value = String(currentYear);
+            }
+            const examTypeFilter = document.getElementById('examReportType');
+            if (examTypeFilter) examTypeFilter.value = 'Mid Term';
         }
         window.togglePasswordVisibility = window.togglePasswordVisibility || function (targetId, toggleBtn) {
             const input = document.getElementById(targetId);

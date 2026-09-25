@@ -74,12 +74,12 @@ module.exports = createHandler({
                     throw error;
                 }
             }
-            if (skill && (!learningOutcome || !['Excellent', 'Satisfactory', 'Needs Practice'].includes(rating))) {
+            if (skill && skill !== '__subject_marks__' && (!learningOutcome || !['Excellent', 'Satisfactory', 'Needs Practice'].includes(rating))) {
                 const error = new Error('Skill, learning outcome, and rating are required.');
                 error.statusCode = 400;
                 throw error;
             }
-            if (skill && ((excellentDescription && satisfactoryDescription) || (!excellentDescription && !satisfactoryDescription && !needsPracticeDescription))) {
+            if (skill && skill !== '__subject_marks__' && ((excellentDescription && satisfactoryDescription) || (!excellentDescription && !satisfactoryDescription && !needsPracticeDescription))) {
                 const error = new Error('Enter Excellent, or enter Satisfactory and/or Needs Practice.');
                 error.statusCode = 400;
                 throw error;
@@ -95,7 +95,12 @@ module.exports = createHandler({
                 studentId,
                 studentName: String(item.studentName || '').trim(),
                 classGrade: String(item.classGrade || '').trim(),
+                section: String(item.section || item.classSection || '').trim() || null,
                 subject,
+                examType: String(item?.examType || '').trim() || null,
+                examYear: String(item?.examYear || '').trim() || null,
+                obtainedMarks: item?.obtainedMarks == null || item.obtainedMarks === '' ? null : Number(item.obtainedMarks),
+                totalMarks: item?.totalMarks == null || item.totalMarks === '' ? null : Number(item.totalMarks),
                 percentage,
                 grade: String(item.grade || gradeFor(percentage)).trim(),
                 skill,

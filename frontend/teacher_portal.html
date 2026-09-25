@@ -1432,9 +1432,7 @@
             <h3>Student Manager</h3>
             <p class="muted">Manage students from your assigned classes and lectures.</p>
             <div class="student-manager-module-grid" aria-label="Student management modules">
-                <button class="student-manager-module" type="button" data-module-page="student_performance.html"><i data-lucide="trending-up"></i><span><strong>Subject Wise Performance</strong>Create performance reports for your assigned subjects.</span></button>
-                <button class="student-manager-module" type="button" data-module-page="student_performance.html#co-curriculum"><i data-lucide="trophy"></i><span><strong>Co-Curriculum Performance</strong>Add projects, presentations, practical tasks, and activities.</span></button>
-                <button class="student-manager-module" type="button" data-module-page="student_performance.html#participation"><i data-lucide="users-round"></i><span><strong>Participations</strong>Record participation, homework, behaviour, hygiene, and regularity.</span></button>
+                <button class="student-manager-module" type="button" data-module-page="student_performance.html"><i data-lucide="clipboard-list"></i><span><strong>Subject Exam Results</strong>Enter exam marks only for your assigned class subjects.</span></button>
                 <button class="student-manager-module" type="button" data-module-page="student_attendance.html"><i data-lucide="calendar-check-2"></i><span><strong>Student Attendance</strong>Mark attendance for students in your assigned classes.</span></button>
                 <button class="student-manager-module" type="button" data-module-page="student_diary.html"><i data-lucide="book-open"></i><span><strong>Diary</strong>Manage class diary, homework, and notes.</span></button>
                 <button class="student-manager-module" type="button" data-module-page="quiz_uploading.html"><i data-lucide="circle-help"></i><span><strong>Quiz</strong>Upload and manage class quizzes.</span></button>
@@ -1687,9 +1685,19 @@
                 const normalized = getTeacherPortalClassSection(record);
                 if (!normalized.className) return;
                 const key = `${normalized.className.toLowerCase()}|${normalized.section.toLowerCase()}`;
-                if (!assignments.has(key)) assignments.set(key, { ...record, ...normalized });
+                const subjects = String(record.subject || record.subjects || '').split(/[,|]/).map((value) => value.trim()).filter(Boolean);
+                if (!assignments.has(key)) assignments.set(key, { ...record, ...normalized, assignedSubjects: [] });
+                const entry = assignments.get(key);
+                subjects.forEach((subject) => { if (!entry.assignedSubjects.some((value) => value.toLowerCase() === subject.toLowerCase())) entry.assignedSubjects.push(subject); });
             });
             return Array.from(assignments.values());
+        }
+
+        function getTeacherPortalStudentSubjects(student = {}) {
+            const matching = getTeacherPortalUniqueAssignments().filter((assignment) => isTeacherPortalStudentAssigned(student, assignment));
+            const explicitSubjects = [...new Set(matching.flatMap((assignment) => assignment.assignedSubjects || []).map((value) => String(value).trim()).filter(Boolean))];
+            const profileSubjects = String(currentTeacherProfile?.subject || '').split(/[,|]/).map((value) => value.trim()).filter(Boolean);
+            return explicitSubjects.length ? explicitSubjects : profileSubjects;
         }
 
         function getTeacherPortalStudentClassSection(student = {}) {
@@ -1743,7 +1751,10 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/teacher-assigned-classes`, { headers: authToken ? { Authorization: `Bearer ${authToken}` } : {} });
                 const result = response.ok ? await response.json() : {};
-                teacherAssignedClassRecords = Array.isArray(result.assignedClasses) ? result.assignedClasses : [];
+                const teacherId = String(currentTeacherProfile?.id || loggedInUser?.id || '').trim();
+                teacherAssignedClassRecords = Array.isArray(result.assignedClasses)
+                    ? result.assignedClasses.filter((item) => String(item.teacherId || '').trim() === teacherId)
+                    : [];
                 if (!teacherAssignedClassRecords.length) {
                     try {
                         const localRecords = JSON.parse(localStorage.getItem('eduCore_teacher_class_assignments') || '[]');
@@ -2219,32 +2230,37 @@
             const host = document.getElementById('teacherStudentManagerList');
             if (!host) return;
             const selected = String(document.getElementById('studentManagerClass')?.value || '').toLowerCase();
+            const selectedSection = String(document.getElementById('studentManagerSection')?.value || '').toLowerCase();
             const query = String(document.getElementById('studentManagerSearch')?.value || '').toLowerCase().trim();
             const rows = teacherManagedStudents.filter((s) => {
                 const cls = studentClass(s).toLowerCase();
-                return (!selected || cls === selected) && (!query || `${s.fullName || ''} ${s.studentId || s.id || ''} ${cls}`.toLowerCase().includes(query));
+                const section = String(s.section || s.classSection || 'General').toLowerCase();
+                return getTeacherPortalStudentSubjects(s).length > 0 && (!selected || cls === selected) && (!selectedSection || section === selectedSection) && (!query || `${s.fullName || ''} ${s.studentId || s.id || ''} ${cls} ${section}`.toLowerCase().includes(query));
             });
             if (!rows.length) { host.innerHTML = '<div class="empty-note">No students found in your assigned classes.</div>'; return; }
             host.innerHTML = rows.map((s) => {
                 const id = s.id || s.studentId || s.username || '';
-                const params = `studentId=${encodeURIComponent(id)}&class=${encodeURIComponent(studentClass(s))}`;
                 const studentLabel = s.studentId || s.admissionNo || s.rollNo || s.registrationNo || s.id || '-';
-                const assignedSubjects = Array.isArray(s.subjects) ? s.subjects.join(', ') : (s.subjects || 'Not assigned');
-                return `<article class="student-manager-card"><h4>${escapeHtml(s.fullName || s.name || 'Student')}</h4><div class="muted">Student ID: ${escapeHtml(studentLabel)} · ${escapeHtml(studentClass(s) || '-')}</div><div class="muted" style="margin-top:.35rem">Subjects: ${escapeHtml(assignedSubjects)}</div><div class="student-manager-actions"><button type="button" data-student-module="student_performance.html" data-student-id="${escapeHtml(id)}" data-student-class="${escapeHtml(studentClass(s))}">Performance</button><button type="button" data-student-module="student_diary.html" data-student-id="${escapeHtml(id)}" data-student-class="${escapeHtml(studentClass(s))}">Diary</button><button type="button" data-student-module="student_attendance.html" data-student-id="${escapeHtml(id)}" data-student-class="${escapeHtml(studentClass(s))}">Attendance</button><button type="button" data-student-module="students.html" data-student-id="${escapeHtml(id)}" data-student-class="${escapeHtml(studentClass(s))}">Profile</button></div></article>`;
+                const assignedSubjects = getTeacherPortalStudentSubjects(s);
+                return `<article class="student-manager-card"><h4>${escapeHtml(s.fullName || s.name || 'Student')}</h4><div class="muted">Student ID: ${escapeHtml(studentLabel)} · ${escapeHtml(studentClass(s) || '-')} · Section ${escapeHtml(s.section || s.classSection || 'General')}</div><div class="muted" style="margin-top:.35rem">Assigned Subjects: ${escapeHtml(assignedSubjects.join(', '))}</div><div class="student-manager-actions"><button type="button" data-student-module="student_performance.html" data-student-id="${escapeHtml(id)}" data-student-class="${escapeHtml(studentClass(s))}" data-student-section="${escapeHtml(s.section || s.classSection || 'General')}">Exams</button><button type="button" data-student-module="student_diary.html" data-student-id="${escapeHtml(id)}" data-student-class="${escapeHtml(studentClass(s))}" data-student-section="${escapeHtml(s.section || s.classSection || 'General')}">Diary</button><button type="button" data-student-module="student_attendance.html" data-student-id="${escapeHtml(id)}" data-student-class="${escapeHtml(studentClass(s))}" data-student-section="${escapeHtml(s.section || s.classSection || 'General')}">Attendance</button></div></article>`;
             }).join('');
             host.querySelectorAll('[data-student-module="students.html"]').forEach((button) => button.remove());
         }
 
         async function loadStudentManager() {
-            const assigned = new Set(uniqueClasses().map((item) => item.toLowerCase()));
             try {
                 const response = await fetch(`${API_BASE_URL}/students`, { headers: authToken ? { Authorization: `Bearer ${authToken}` } : {} });
                 const result = response.ok ? await response.json() : [];
                 const students = Array.isArray(result) ? result : (result.students || []);
-                teacherManagedStudents = students.filter((student) => assigned.has(studentClass(student).toLowerCase()));
+                teacherManagedStudents = students.filter((student) => getTeacherPortalStudentSubjects(student).length > 0);
             } catch (_error) { teacherManagedStudents = []; }
             const classSelect = document.getElementById('studentManagerClass');
             if (classSelect) classSelect.innerHTML = '<option value="">All assigned classes</option>' + uniqueClasses().map((c) => `<option value="${escapeHtml(c.toLowerCase())}">${escapeHtml(c)}</option>`).join('');
+            const sectionSelect = document.getElementById('studentManagerSection');
+            if (sectionSelect) {
+                const sections = [...new Set(teacherManagedStudents.map((student) => String(student.section || student.classSection || 'General').trim()))].sort((a,b) => a.localeCompare(b, undefined, { sensitivity:'base' }));
+                sectionSelect.innerHTML = '<option value="">All assigned sections</option>' + sections.map((section) => `<option value="${escapeHtml(section.toLowerCase())}">${escapeHtml(section)}</option>`).join('');
+            }
             renderStudentManager();
         }
 
@@ -2252,7 +2268,8 @@
             const workspace = document.getElementById('studentManagerWorkspace');
             const frame = document.getElementById('studentManagerWorkspaceFrame');
             if (!workspace || !frame) return;
-            const assignedClasses = uniqueClasses();
+            const scopedAssignments = getTeacherPortalUniqueAssignments().map((assignment) => ({ ...assignment, assignedSubjects: getTeacherPortalStudentSubjects({ classGrade:assignment.className, section:assignment.section, campusName:assignment.campusName }) }));
+            const assignedClasses = [...new Set(scopedAssignments.map((assignment) => assignment.className))];
             if (!assignedClasses.length) {
                 showAppAlert('Admin has not assigned any class to your teacher account yet.', 'Access Restricted');
                 return;
@@ -2260,11 +2277,12 @@
             document.getElementById('studentManagerWorkspaceTitle').textContent = title || 'Student workspace';
             workspace.classList.add('active');
             frame.dataset.assignedClasses = JSON.stringify(assignedClasses);
-            const assignedSubjects = uniqueSubjects();
+            const assignedSubjects = [...new Set(scopedAssignments.flatMap((assignment) => assignment.assignedSubjects || []))];
             frame.dataset.assignedSubjects = JSON.stringify(assignedSubjects);
-            const query = new URLSearchParams({ embedded: 'teacher', assignedClasses: assignedClasses.join('|'), assignedSubjects: assignedSubjects.join('|') });
+            const query = new URLSearchParams({ embedded: 'teacher', assignedClasses: assignedClasses.join('|'), assignedSubjects: assignedSubjects.join('|'), teacherAssignments: JSON.stringify(scopedAssignments) });
             if (context.studentId) query.set('studentId', context.studentId);
             if (context.studentClass) query.set('class', context.studentClass);
+            if (context.studentSection) query.set('section', context.studentSection);
             const [pagePath, pageHash = ''] = String(page || '').split('#');
             frame.src = `${pagePath}?${query.toString()}${pageHash ? `#${pageHash}` : ''}`;
             workspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2529,6 +2547,7 @@
             document.getElementById('teacherLeaveForm')?.addEventListener('submit', submitTeacherLeave);
             document.getElementById('teacherAttendanceMonth')?.addEventListener('change', renderSelfAttendance);
             document.getElementById('studentManagerClass')?.addEventListener('change', renderStudentManager);
+            document.getElementById('studentManagerSection')?.addEventListener('change', renderStudentManager);
             document.getElementById('studentManagerSearch')?.addEventListener('input', renderStudentManager);
             document.querySelectorAll('[data-module-page]').forEach((button) => {
                 button.addEventListener('click', () => openStudentManagerModule(button.dataset.modulePage, button.querySelector('strong')?.textContent));
@@ -2538,7 +2557,8 @@
                 if (!button) return;
                 openStudentManagerModule(button.dataset.studentModule, button.textContent.trim(), {
                     studentId: button.dataset.studentId,
-                    studentClass: button.dataset.studentClass
+                    studentClass: button.dataset.studentClass,
+                    studentSection: button.dataset.studentSection
                 });
             });
             document.getElementById('studentManagerWorkspaceClose')?.addEventListener('click', () => {

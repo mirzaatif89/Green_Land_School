@@ -46,7 +46,7 @@
         { type: 'link', page: 'notifications', label: 'Notification', icon: 'bell-ring' },
         { type: 'link', page: 'classes', label: 'Classes', icon: 'school' },
         { type: 'link', page: 'students', label: 'Students', icon: 'users' },
-        { type: 'link', page: 'students', hash: '#status', label: 'Performances', icon: 'trending-up' },
+        { type: 'link', page: 'students', hash: '#status', label: 'Examinations Report', icon: 'trending-up' },
         { type: 'link', page: 'teachers', label: 'Teachers', icon: 'book-open' },
         { type: 'link', page: 'staff', label: 'Staff', icon: 'briefcase' },
         { type: 'link', page: 'families', label: 'Families', icon: 'home' },

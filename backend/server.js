@@ -3440,6 +3440,7 @@ registerMobileCollectionRoutes({ route: 'uploaded-lectures', storeName: 'uploade
 registerMobileCollectionRoutes({ route: 'student-quizzes', storeName: 'student_quizzes', recordsKey: 'quizzes', itemKey: 'quiz', prefix: 'QUIZ' });
 registerMobileCollectionRoutes({ route: 'student-quiz-submissions', storeName: 'student_quiz_submissions', recordsKey: 'submissions', itemKey: 'submission', prefix: 'QUIZ-SUB' });
 registerMobileCollectionRoutes({ route: 'student-results', storeName: 'student_results', recordsKey: 'results', itemKey: 'result', prefix: 'RESULT' });
+registerMobileCollectionRoutes({ route: 'result-publish-schedules', storeName: 'result_publish_schedules', recordsKey: 'schedules', itemKey: 'schedule', prefix: 'RESULT-SCHEDULE' });
 registerMobileCollectionRoutes({ route: 'student-syllabus', storeName: 'student_syllabus', recordsKey: 'syllabus', itemKey: 'syllabusItem', prefix: 'SYL' });
 registerMobileCollectionRoutes({ route: 'teacher-assigned-classes', storeName: 'teacher_assigned_classes', recordsKey: 'assignedClasses', itemKey: 'assignedClass', prefix: 'TCLASS' });
 
@@ -3491,10 +3492,10 @@ app.post('/api/student-performance', authenticateToken, async (req, res) => {
                     return res.status(403).json({ success: false, message: 'You can only add performance for your assigned subject.' });
                 }
             }
-            if (skill && (!learningOutcome || !['Excellent', 'Satisfactory', 'Needs Practice'].includes(rating))) {
+            if (skill && skill !== '__subject_marks__' && (!learningOutcome || !['Excellent', 'Satisfactory', 'Needs Practice'].includes(rating))) {
                 return res.status(400).json({ success: false, message: 'Skill, learning outcome, and rating are required.' });
             }
-            if (skill && ((excellentDescription && satisfactoryDescription) || (!excellentDescription && !satisfactoryDescription && !needsPracticeDescription))) {
+            if (skill && skill !== '__subject_marks__' && ((excellentDescription && satisfactoryDescription) || (!excellentDescription && !satisfactoryDescription && !needsPracticeDescription))) {
                 return res.status(400).json({ success: false, message: 'Enter Excellent, or enter Satisfactory and/or Needs Practice.' });
             }
             if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
@@ -3509,6 +3510,10 @@ app.post('/api/student-performance', authenticateToken, async (req, res) => {
                 classGrade: String(item.classGrade || '').trim(),
                 section: String(item.section || item.classSection || 'General').trim() || 'General',
                 subject,
+                examType: String(item.examType || '').trim() || null,
+                examYear: String(item.examYear || '').trim() || null,
+                obtainedMarks: item.obtainedMarks == null || item.obtainedMarks === '' ? null : Number(item.obtainedMarks),
+                totalMarks: item.totalMarks == null || item.totalMarks === '' ? null : Number(item.totalMarks),
                 percentage,
                 grade,
                 skill,
@@ -4127,8 +4132,12 @@ function defineStudentPerformanceModel(db) {
         studentId: { type: DataTypes.STRING, allowNull: false },
         studentName: { type: DataTypes.STRING, allowNull: false },
         classGrade: { type: DataTypes.STRING, allowNull: false },
-        section: { type: DataTypes.STRING, allowNull: true },
         subject: { type: DataTypes.STRING, allowNull: false },
+        examType: { type: DataTypes.STRING, allowNull: true },
+        examYear: { type: DataTypes.STRING, allowNull: true },
+        obtainedMarks: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+        totalMarks: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+        section: { type: DataTypes.STRING, allowNull: true },
         percentage: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
         grade: { type: DataTypes.STRING, allowNull: true },
         skill: { type: DataTypes.STRING, allowNull: true },
@@ -4584,6 +4593,10 @@ async function ensureLegacySchema() {
 
     await ensureTableColumns('StudentPerformances', {
         section: { type: DataTypes.STRING, allowNull: true },
+        examType: { type: DataTypes.STRING, allowNull: true },
+        examYear: { type: DataTypes.STRING, allowNull: true },
+        obtainedMarks: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+        totalMarks: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
         skill: { type: DataTypes.STRING, allowNull: true },
         learningOutcome: { type: DataTypes.TEXT, allowNull: true },
         rating: { type: DataTypes.STRING, allowNull: true },
