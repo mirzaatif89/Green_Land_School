@@ -1,67 +1,269 @@
-/* Shared Green Land identity for administration, teacher and student panels. */
-:root{--primary-color:#08643b;--primary-dark:#064d2e;--secondary-color:#60715f;--accent-color:#aed45c;--bg-color:#f4f6ee;--text-primary:#193d2b;--text-secondary:#60715f;--border-color:#dce5d5;--success-color:#087a45}
-.dashboard-container .sidebar{background:#fbfcf7;border-right:1px solid #dce5d5}
-.sidebar .logo-section{padding:20px 12px 18px;background:#f5f7eb;border-bottom:1px solid #dce5d5}
-.sidebar .logo-section::before{display:none}
-.sidebar .sidebar-logo-img{display:block;width:90px;height:90px;object-fit:contain;border-radius:16px;max-width:100%;margin:auto}
-.sidebar .logo-section::after{content:"Green Land\A Model School Jand";white-space:pre-wrap;line-height:1.45;font-size:14px;color:#08643b;letter-spacing:.025em;text-align:center}
-.sidebar .nav-item.active{background:#e6efd9;color:#065b34;border-color:#acc889;box-shadow:inset 3px 0 #08643b}
-.sidebar .nav-item:hover{background:#edf3e5;color:#08643b}
-.dashboard-container .top-header,.dashboard-container .header{border-bottom-color:#dce5d5}
-.dashboard-container .card{border:1px solid #dce5d5;box-shadow:0 4px 16px #234d2410}
-.btn-success{background:#08643b;color:#fff}.btn-success:hover{background:#064d2e}
-.login-layout{height:auto;min-height:100dvh;padding:35px 20px;background:radial-gradient(ellipse at top left,#dce9c1,transparent 60%),#f7f7ed}
-.login-card{max-width:470px;border:1px solid #d9e2cd;border-radius:22px;box-shadow:0 20px 70px #173f241a;overflow:hidden}
-.login-header{padding:25px 25px 20px;background:#f0f3e4;border-bottom:1px solid #dce5d5}
-.login-icon-circle{height:auto;width:100%;background:none;border:none;box-shadow:none;display:flex;flex-direction:column;gap:8px}
-.login-school-logo{width:120px;height:120px;object-fit:contain;border-radius:16px}
-.login-school-name{white-space:normal;width:auto;max-width:100%;font-size:17px;color:#08643b;line-height:1.4;text-shadow:none}
-.login-school-name strong{font-size:25px}.login-body{padding:28px 32px}
-.portal-signin-title{font-size:19px;line-height:1.4;text-align:center;margin:0 0 6px}.portal-signin-note{text-align:center;font-size:13px;color:#60715f;margin:0 0 25px}
-.school-home-link{display:block;text-align:center;margin-top:22px;font-size:13px;color:#08643b}
-.portal-about-content h3{margin-top:24px;color:#08643b}.portal-about-contact a{color:#08643b;text-decoration:underline;text-underline-offset:3px}
-@media(max-width:480px){.login-body{padding:24px 20px}.login-layout{padding:20px 14px}.portal-signin-title{font-size:17px}}
-@media print{.school-home-link{display:none}}
+/* Green Land's shared school identity for admin, teacher and student screens. */
+:root {
+  --primary-color: #17654e;
+  --primary-dark: #104b3a;
+  --secondary-color: #61746a;
+  --accent-color: #c4a765;
+  --bg-color: #f3f6f3;
+  --text-primary: #1e3930;
+  --text-secondary: #708078;
+  --border-color: #dce6df;
+  --success-color: #16805a;
+  --radius-md: 11px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 4px 14px rgb(24 57 43 / 5%);
+  --shadow-md: 0 12px 30px rgb(24 57 43 / 8%);
+}
 
-/* Refined portal theme: forest green, ivory and restrained brass accents. */
-:root{--primary-color:#17654e;--primary-dark:#104b3a;--accent-color:#c2a66f;--bg-color:#f2f5f4;--text-primary:#213c35;--text-secondary:#75857e;--border-color:#e2e9e5;--radius-md:12px;--radius-lg:18px}
-body,input,select,textarea,button{font-family:'Segoe UI',Arial,sans-serif}
-.dashboard-container .main-content{background:#f2f5f4;background-image:radial-gradient(ellipse at 95% 0%,#e5eee8 0,transparent 48%);padding:28px}
-.dashboard-container .sidebar{background:linear-gradient(165deg,#173e33 0%,#102d26 100%);color:#dbe8df;border-right:0;box-shadow:6px 0 28px #15362b12}
-.dashboard-container .sidebar .logo-section{display:flex;flex-direction:column;justify-content:center;gap:13px;padding:20px 5px 24px;margin-bottom:18px;background:transparent;border:0;border-bottom:1px solid #ffffff20;border-radius:0;box-shadow:none;flex-shrink:0}
-.dashboard-container .sidebar .sidebar-logo-img{display:block;width:76px;height:76px;max-width:76px;object-fit:contain;border-radius:20px;border:1px solid #ffffff35;box-shadow:0 5px 16px #00000018;margin:0}
-.dashboard-container .sidebar .logo-section::after{content:'Green Land\A Model School Jand';font-family:Georgia,'Times New Roman',serif;font-size:21px;line-height:1.35;font-weight:400;letter-spacing:.025em;color:#f4ecd9;white-space:pre;text-align:center;text-shadow:none}
-.dashboard-container .sidebar .nav-item,.dashboard-container .sidebar .nav-subitem{color:#c0d2c8;font-size:13px;font-weight:500;border:1px solid transparent;border-radius:10px;box-shadow:none;transition:background .18s,color .18s;transform:none}
-.dashboard-container .sidebar .nav-item{padding:12px 14px;margin-bottom:5px;min-height:44px}
-.dashboard-container .sidebar .nav-item:hover,.dashboard-container .sidebar .nav-subitem:hover{background:#ffffff0d;color:#fff;border-color:#ffffff0c;transform:none}
-.dashboard-container .sidebar .nav-item.active,.dashboard-container .sidebar .nav-subitem.active,.dashboard-container .sidebar .nav-dropdown.open>.nav-dropdown-toggle{background:#f0ead9;color:#193e31;border-color:#f0ead9;box-shadow:0 4px 12px #0000000d;font-weight:600}
-.dashboard-container .sidebar .nav-item svg,.dashboard-container .sidebar .nav-subitem svg{color:inherit;background:transparent;box-shadow:none;border:0}
-.dashboard-container .sidebar .nav-links::-webkit-scrollbar-thumb{background:#ffffff26}
-.dashboard-container .sidebar .user-profile{background:#ffffff08;border:1px solid #ffffff16;padding:13px 10px;border-radius:14px;box-shadow:none;color:#fff}
-.dashboard-container .sidebar .user-profile:hover{background:#ffffff12;margin-left:0;margin-right:0}
-.dashboard-container .sidebar .user-info h4{color:#f1f6f2;font-size:13px;font-weight:600}
-.dashboard-container .sidebar .user-info p{color:#a5bfb1;font-size:11px}
-.dashboard-container .sidebar .avatar{background:#d9c69b;color:#284335;box-shadow:none;font-weight:600}
-.dashboard-container .header{padding:0 0 22px;margin-bottom:24px;border-bottom:1px solid #dae4dd}
-.dashboard-container .header h1{font-size:29px;letter-spacing:-.045em;font-weight:650;color:#213e33}
-.dashboard-container .btn-primary,.dashboard-container .btn-success{background:#17654e;color:white;border:1px solid #17654e;box-shadow:0 4px 12px #17654e14;font-weight:600}
-.dashboard-container .btn-primary:hover,.dashboard-container .btn-success:hover{background:#104b3a;transform:none}
-.dashboard-container .btn-outline{background:#fff;border-color:#dce6df;color:#325745}
-.dashboard-container .card{background:#fff;border:1px solid #e0e8e2;box-shadow:0 5px 22px #183d2b06;border-radius:16px}
-.dashboard-container .card::before{background:none;display:none}
-.dashboard-container .card:hover{border-color:#b8cec0;box-shadow:0 8px 24px #183d2b0b;transform:translateY(-2px)}
-#dashboardStatsGrid{gap:16px;max-width:none}
-#dashboardStatsGrid .card{height:164px;padding:21px;border-radius:16px}
-#dashboardStatsGrid .card-title{font-size:12px;letter-spacing:.015em;color:#6b8075;font-weight:500;padding-right:34px;margin-bottom:13px}
-#dashboardStatsGrid .card-value{font-size:34px;line-height:1.2;letter-spacing:-.04em;font-weight:600;color:#203c30;margin-bottom:17px;font-variant-numeric:tabular-nums}
-#dashboardStatsGrid .card-trend{font-size:11px;color:#39795c;font-weight:500}
-#dashboardStatsGrid .card-icon{width:34px;height:34px;right:15px;top:17px;border-radius:11px;background:#edf4ef;color:#317051;box-shadow:none}
-.dashboard-container table thead th{background:#edf2ee;color:#516a5b;border-bottom:1px solid #dce6de;font-weight:600}
-.dashboard-container input:not([type='checkbox']):not([type='radio']),.dashboard-container select,.dashboard-container textarea{border-color:#d9e3dc;border-radius:9px;color:#2d493a}
-.dashboard-container input:focus,.dashboard-container select:focus,.dashboard-container textarea:focus{outline-color:#579e7c;border-color:#579e7c;box-shadow:0 0 0 3px #17654e10}
-.sidebar a:focus-visible{outline:2px solid #e0c796;outline-offset:2px}
-.login-school-name{font-family:Georgia,'Times New Roman',serif;font-weight:400}.login-school-name strong{font-weight:400;font-size:30px}
-@media(max-width:768px){.dashboard-container .main-content{padding:18px}.dashboard-container .header{gap:14px;flex-wrap:wrap}.dashboard-container .header h1{font-size:25px}#dashboardStatsGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#dashboardStatsGrid .card{height:150px;padding:16px}#dashboardStatsGrid .card-value{font-size:29px}#dashboardStatsGrid .card-title{font-size:11px}}
-@media(max-width:380px){#dashboardStatsGrid{grid-template-columns:1fr}}
-@media(prefers-reduced-motion:reduce){.dashboard-container .card:hover{transform:none}.dashboard-container .sidebar .nav-item{transition:none}}
-@media print{.dashboard-container .main-content{background:white}.dashboard-container .card{box-shadow:none}}
+body, input, select, textarea, button { font-family: 'Segoe UI', Arial, sans-serif; }
+
+/* Sidebar */
+.dashboard-container .sidebar {
+  width: 258px;
+  padding: 16px 13px 14px;
+  border: 0;
+  background: linear-gradient(180deg, #14392f 0%, #0e2f27 100%);
+  color: #d8e6de;
+  box-shadow: 8px 0 25px rgb(19 48 38 / 10%);
+}
+.dashboard-container .sidebar .logo-section {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  justify-content: initial;
+  gap: 11px;
+  min-height: 71px;
+  padding: 10px 11px;
+  margin: 0 0 15px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 13px;
+  background: rgb(255 255 255 / 4%);
+  box-shadow: none;
+  text-align: left;
+}
+.dashboard-container .sidebar .logo-section::before { display: none; }
+.dashboard-container .sidebar .sidebar-logo-img {
+  display: block;
+  width: 46px;
+  height: 46px;
+  max-width: 46px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 12px;
+  background: #fffdf4;
+  object-fit: contain;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 12%);
+}
+.dashboard-container .sidebar .logo-section::after {
+  content: 'Green Land\A MODEL SCHOOL JAND';
+  min-width: 0;
+  color: #f3f6ed;
+  font: 600 14px/1.3 'Segoe UI', Arial, sans-serif;
+  letter-spacing: .015em;
+  text-align: left;
+  text-shadow: none;
+  white-space: pre-wrap;
+}
+.dashboard-container .sidebar .nav-links {
+  margin: 0 -4px 10px 0;
+  padding: 0 5px 0 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(221 237 226 / 24%) transparent;
+}
+.dashboard-container .sidebar .nav-links::-webkit-scrollbar { width: 5px; }
+.dashboard-container .sidebar .nav-links::-webkit-scrollbar-thumb { border-radius: 10px; background: rgb(221 237 226 / 24%); }
+.dashboard-container .sidebar .nav-item,
+.dashboard-container .sidebar .nav-subitem {
+  min-height: 43px;
+  padding: 10px 11px;
+  margin-bottom: 4px;
+  gap: 11px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #c2d3c9;
+  font-size: 13px;
+  font-weight: 550;
+  box-shadow: none;
+  transform: none;
+  transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+.dashboard-container .sidebar .nav-item svg,
+.dashboard-container .sidebar .nav-subitem svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: currentColor !important;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.dashboard-container .sidebar .nav-item:hover,
+.dashboard-container .sidebar .nav-subitem:hover {
+  border-color: rgb(255 255 255 / 7%);
+  background: rgb(255 255 255 / 7%);
+  color: #fff;
+}
+.dashboard-container .sidebar .nav-item.active,
+.dashboard-container .sidebar .nav-subitem.active,
+.dashboard-container .sidebar .nav-dropdown.open > .nav-dropdown-toggle {
+  border-color: rgb(211 231 185 / 16%);
+  background: #e5eddb;
+  color: #183e30;
+  font-weight: 650;
+  box-shadow: inset 3px 0 #bdcf82, 0 4px 10px rgb(0 0 0 / 8%);
+}
+.dashboard-container .sidebar .nav-dropdown { margin-bottom: 4px; }
+.dashboard-container .sidebar .nav-dropdown-toggle { width: 100%; text-align: left; }
+.dashboard-container .sidebar .nav-item-main { display: inline-flex; align-items: center; gap: 11px; }
+.dashboard-container .sidebar .dropdown-chevron { width: 15px; height: 15px; margin-left: auto; transition: transform .16s ease; }
+.dashboard-container .sidebar .nav-dropdown.open .dropdown-chevron { transform: rotate(180deg); }
+.dashboard-container .sidebar .nav-submenu {
+  margin: 3px 0 8px 11px;
+  padding: 4px 0 4px 9px;
+  border-left: 1px solid rgb(214 231 219 / 20%);
+}
+.dashboard-container .sidebar .nav-subitem {
+  min-height: 37px;
+  padding: 8px 9px;
+  font-size: 12px;
+}
+.dashboard-container .sidebar .user-profile {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px;
+  margin: 5px 0 0;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 5%);
+  color: #f1f5ef;
+  box-shadow: none;
+}
+.dashboard-container .sidebar .user-profile:hover { margin-inline: 0; background: rgb(255 255 255 / 9%); }
+.dashboard-container .sidebar .avatar {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border: 0;
+  background: #d8c38f;
+  color: #254735;
+  box-shadow: none;
+  font-weight: 700;
+}
+.dashboard-container .sidebar .user-info h4 { margin: 0 0 2px; color: #f1f5ef; font-size: 13px; font-weight: 650; }
+.dashboard-container .sidebar .user-info p { margin: 0; color: #a9beb2; font-size: 11px; }
+
+/* Main workspace */
+.dashboard-container .main-content {
+  min-width: 0;
+  padding: 27px clamp(22px, 2.7vw, 40px);
+  background: #f3f6f3;
+  background-image: radial-gradient(ellipse at 92% 0%, #e6eee7 0, transparent 42%);
+}
+.dashboard-container .header {
+  align-items: center;
+  gap: 18px;
+  padding: 0 0 20px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid #dce6df;
+}
+.dashboard-container .header h1 {
+  margin: 0;
+  color: #1d3c31;
+  font-size: clamp(25px, 2vw, 31px);
+  font-weight: 680;
+  letter-spacing: -.04em;
+}
+.dashboard-container .header p { color: #718178; }
+.dashboard-container .card,
+.dashboard-container .table-container,
+.dashboard-container .content-panel {
+  border: 1px solid #dfe8e1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.dashboard-container .card { transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.dashboard-container .card::before { display: none; }
+.dashboard-container .card:hover { transform: translateY(-2px); border-color: #c4d7c9; box-shadow: var(--shadow-md); }
+.dashboard-container .btn-primary,
+.dashboard-container .btn-success {
+  border: 1px solid #17654e;
+  border-radius: 9px;
+  background: #17654e;
+  color: #fff;
+  font-weight: 650;
+  box-shadow: 0 5px 13px rgb(23 101 78 / 12%);
+}
+.dashboard-container .btn-primary:hover,
+.dashboard-container .btn-success:hover { border-color: #104b3a; background: #104b3a; transform: translateY(-1px); }
+.dashboard-container .btn-outline { border: 1px solid #d7e3da; border-radius: 9px; background: #fff; color: #315542; }
+.dashboard-container .btn-outline:hover { border-color: #aac5b4; background: #f3f8f4; color: #174f3b; }
+.dashboard-container input:not([type='checkbox']):not([type='radio']),
+.dashboard-container select,
+.dashboard-container textarea { border-color: #d7e2da; border-radius: 9px; color: #29483a; }
+.dashboard-container input:focus,
+.dashboard-container select:focus,
+.dashboard-container textarea:focus { border-color: #69a184; outline-color: #69a184; box-shadow: 0 0 0 3px rgb(23 101 78 / 10%); }
+.dashboard-container table thead th { background: #edf3ee; color: #50685a; border-bottom-color: #dbe5dd; }
+#dashboardStatsGrid { gap: 15px; max-width: none; }
+#dashboardStatsGrid .card { min-height: 154px; height: auto; padding: 19px; border-radius: 14px; }
+#dashboardStatsGrid .card-title { margin-bottom: 12px; color: #718178; font-size: 12px; font-weight: 600; }
+#dashboardStatsGrid .card-value { color: #1f4033; font-size: 32px; font-weight: 650; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+#dashboardStatsGrid .card-icon { border: 1px solid #e0ebe1; border-radius: 11px; background: #eff5ed; color: #377553; box-shadow: none; }
+.dashboard-container .top-header { border-bottom-color: #dce6df; }
+
+/* Sign-in and school info */
+.login-layout { min-height: 100dvh; height: auto; padding: 32px 18px; background: radial-gradient(ellipse at 8% 0%, #dce9df, transparent 45%), #f3f6f3; }
+.login-card { max-width: 470px; overflow: hidden; border: 1px solid #dce6df; border-radius: 18px; background: #fff; box-shadow: 0 22px 70px rgb(23 62 46 / 13%); }
+.login-header { padding: 25px 24px 20px; border-bottom: 1px solid #e1e9e2; background: #f4f7f1; }
+.login-icon-circle { display: flex; width: 100%; height: auto; flex-direction: column; gap: 9px; border: 0; background: none; box-shadow: none; }
+.login-school-logo { width: 104px; height: 104px; border-radius: 16px; object-fit: contain; }
+.login-school-name { width: auto; max-width: 100%; color: #17654e; font-size: 17px; line-height: 1.4; text-shadow: none; white-space: normal; }
+.login-school-name strong { font-size: 26px; font-weight: 500; }
+.login-body { padding: 27px 30px; }
+.portal-signin-title { margin: 0 0 5px; font-size: 19px; line-height: 1.4; text-align: center; }
+.portal-signin-note { margin: 0 0 24px; color: #718178; font-size: 13px; text-align: center; }
+.school-home-link { display: block; margin-top: 20px; color: #17654e; text-align: center; }
+.portal-about-content h3 { margin-top: 22px; color: #17654e; }
+.portal-about-contact a { color: #17654e; text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 900px) {
+  .dashboard-container .sidebar { position: sticky; top: 0; width: 100% !important; height: auto; max-height: none; padding: 9px 13px 8px; border: 0; border-bottom: 1px solid rgb(255 255 255 / 12%); }
+  .dashboard-container .sidebar .logo-section { display: flex; min-height: 48px; gap: 9px; padding: 2px 2px 8px; margin: 0 0 7px; border: 0; background: none; }
+  .dashboard-container .sidebar .sidebar-logo-img { width: 37px; height: 37px; max-width: 37px; border-radius: 10px; }
+  .dashboard-container .sidebar .logo-section::after { font-size: 12px; }
+  .dashboard-container .sidebar .nav-links { display: flex; flex: none !important; gap: 5px; overflow-x: auto; overflow-y: hidden; margin: 0; padding: 0 0 2px; }
+  .dashboard-container .sidebar .nav-item,
+  .dashboard-container .sidebar .nav-subitem { flex: 0 0 auto; min-height: 39px; padding: 8px 10px; margin: 0; white-space: nowrap; }
+  .dashboard-container .sidebar .nav-dropdown { flex: 0 0 auto; margin: 0; }
+  .dashboard-container .sidebar .nav-submenu { position: absolute; z-index: 10; max-height: 65vh; overflow: auto; margin-top: 6px; padding: 7px; border: 1px solid rgb(255 255 255 / 12%); border-radius: 10px; background: #14392f; box-shadow: var(--shadow-md); }
+  .dashboard-container .sidebar .user-profile { display: none !important; }
+  .dashboard-container .main-content { width: 100%; padding: 19px 17px !important; }
+  .dashboard-container .header { flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  .dashboard-container .main-content { padding: 15px 12px !important; }
+  .dashboard-container .header h1 { font-size: 24px; }
+  #dashboardStatsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  #dashboardStatsGrid .card { min-height: 126px; padding: 13px; }
+  #dashboardStatsGrid .card-value { font-size: 26px; }
+  #dashboardStatsGrid .card-title { padding-right: 27px; font-size: 11px; }
+  #dashboardStatsGrid .card-icon { top: 12px; right: 11px; width: 30px; height: 30px; }
+  .login-body { padding: 23px 19px; }
+  .login-layout { padding: 18px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-container .card,
+  .dashboard-container .sidebar .nav-item { transition: none; }
+  .dashboard-container .card:hover { transform: none; }
+}
+@media print {
+  .school-home-link { display: none; }
+  .dashboard-container .main-content { background: #fff; }
+  .dashboard-container .card { box-shadow: none; }
+}
