@@ -35,6 +35,8 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-
 .navlinks { display: flex; align-items: center; gap: clamp(17px, 2.35vw, 34px); color: #455148; font-size: 12px; font-weight: 600; }
 .navlinks > a:not(.nav-apply) { transition: color .18s ease; }
 .navlinks > a:not(.nav-apply):hover { color: var(--green); }
+.navlinks > .nav-portal { min-height: 41px; display: inline-flex; align-items: center; gap: 12px; padding: 0 13px; border: 1px solid #d8d9cf; color: var(--forest); white-space: nowrap; }
+.navlinks > .nav-portal:hover { border-color: var(--green); color: var(--green); }
 .nav-apply { display: inline-flex; min-height: 43px; align-items: center; gap: 17px; padding: 0 15px; color: white; background: var(--forest); transition: background .18s ease; }
 .nav-apply:hover { background: var(--green); }
 .menu { display: none; }
@@ -163,6 +165,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-
   .navlinks { position: absolute; top: 100%; right: 0; left: 0; display: none; align-items: stretch; gap: 0; padding: 7px 19px 15px; border-bottom: 1px solid var(--line); background: #f8f7f2; box-shadow: 0 12px 20px rgb(11 43 34 / 8%); }
   .navlinks.open { display: flex; flex-direction: column; }
   .navlinks > a:not(.nav-apply) { padding: 9px 0; }
+  .navlinks > .nav-portal { justify-content: center; margin-top: 6px; padding: 0 13px !important; }
   .nav-apply { justify-content: center; margin-top: 7px; }
   .hero { min-height: 650px; min-height: calc(91svh - 67px); align-items: flex-end; }
   .hero-image { object-position: 56% center; }

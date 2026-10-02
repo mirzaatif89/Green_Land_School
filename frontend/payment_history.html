@@ -182,7 +182,7 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <link rel="stylesheet" href="school-theme.css?v=20261002-dashboard-cards-125">
     <script src="school-branding.js?v=20260924"></script>
 </head>
 <body>
@@ -232,12 +232,8 @@
                     <select id="statementMonthFilter"><option value="">All Months</option></select>
                 </div>
                 <div class="statement-field">
-                    <label for="statementDateFromFilter">Start Date</label>
-                    <input type="date" id="statementDateFromFilter">
-                </div>
-                <div class="statement-field">
-                    <label for="statementDateToFilter">End Date</label>
-                    <input type="date" id="statementDateToFilter">
+                    <label for="statementSessionFilter">Academic Session</label>
+                    <select id="statementSessionFilter"><option value="">All Sessions</option></select>
                 </div>
             </div>
 
@@ -275,12 +271,8 @@
             <div class="statement-modal-body">
                 <div class="statement-modal-filters">
                     <div class="statement-field">
-                        <label for="historyDateFromFilter">Start Date</label>
-                        <input type="date" id="historyDateFromFilter">
-                    </div>
-                    <div class="statement-field">
-                        <label for="historyDateToFilter">End Date</label>
-                        <input type="date" id="historyDateToFilter">
+                        <label for="historySessionFilter">Academic Session</label>
+                        <select id="historySessionFilter"><option value="">All Sessions</option></select>
                     </div>
                     <button class="btn btn-primary" type="button" onclick="printSelectedStudentStatement()"><i data-lucide="printer"></i> Print Statement</button>
                 </div>
@@ -305,8 +297,8 @@
         </div>
     </div>
 
-    <script src="auth.js?v=20260814-live-auth-fix1"></script>
-    <script src="script.js?v=20260814-local-runtime-fix6"></script>
+    <script src="auth.js?v=20261002-sidebar-facility-nav1"></script>
+    <script src="script.js?v=20261002-sidebar-facility-nav1"></script>
     <script>
         let paymentStatementRows = [];
         let filteredStatementRows = [];
@@ -393,6 +385,36 @@
             return 0;
         }
 
+        function academicSessionFromYearMonth(year, monthIndex) {
+            const startYear = Number(year) - (Number(monthIndex) < 6 ? 1 : 0);
+            return `${startYear}-${startYear + 1}`;
+        }
+
+        function resolvePaymentAcademicSession(explicitSession, feeMonth, rawDate) {
+            const session = String(explicitSession || '').trim();
+            if (session && session !== '-') return session;
+
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const label = String(feeMonth || '');
+            const monthMatch = label.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i);
+            const yearMatch = label.match(/\b((?:19|20)\d{2})\b/);
+            let monthIndex = monthMatch ? monthNames.findIndex((month) => month.toLowerCase().startsWith(monthMatch[1].slice(0, 3).toLowerCase())) : -1;
+            let year = yearMatch ? Number(yearMatch[1]) : 0;
+
+            if (monthIndex < 0 || !year) {
+                const dateParts = String(rawDate || '').match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+                const parsed = dateParts
+                    ? new Date(Number(dateParts[3]), Number(dateParts[2]) - 1, Number(dateParts[1]))
+                    : new Date(rawDate || '');
+                if (!Number.isNaN(parsed.getTime())) {
+                    if (monthIndex < 0) monthIndex = parsed.getMonth();
+                    if (!year) year = parsed.getFullYear();
+                }
+            }
+
+            return year && monthIndex >= 0 ? academicSessionFromYearMonth(year, monthIndex) : 'Unassigned';
+        }
+
         function normalizedFilterValue(value) {
             return String(value || '').trim().toLowerCase();
         }
@@ -420,17 +442,21 @@
             const studentSelect = document.getElementById('statementStudentFilter');
             const classSelect = document.getElementById('statementClassFilter');
             const monthSelect = document.getElementById('statementMonthFilter');
+            const sessionSelect = document.getElementById('statementSessionFilter');
             const currentStudent = studentSelect.value;
             const currentClass = classSelect.value;
             const currentMonth = monthSelect.value;
+            const currentSession = sessionSelect.value;
             const students = new Map();
             const classes = new Map();
             const months = new Map();
+            const sessions = new Set();
 
             paymentStatementRows.forEach((row) => {
                 if (row.studentId || row.student) students.set(row.studentId || row.student, row.student);
                 if (row.classGrade && row.classGrade !== '-') classes.set(normalizedFilterValue(row.classGrade), row.classGrade);
                 if (row.month && row.month !== '-') months.set(normalizedFilterValue(row.month), row.month);
+                if (row.session) sessions.add(row.session);
             });
 
             studentSelect.innerHTML = '<option value="">All Students</option>' + Array.from(students.entries())
@@ -445,10 +471,19 @@
                 .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
                 .map((value) => `<option value="${escHistory(value)}">${escHistory(value)}</option>`)
                 .join('');
+            sessionSelect.innerHTML = '<option value="">All Sessions</option>' + Array.from(sessions)
+                .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
+                .map((value) => `<option value="${escHistory(value)}">${escHistory(value)}</option>`)
+                .join('');
 
             if (Array.from(students.keys()).some((value) => String(value) === currentStudent)) studentSelect.value = currentStudent;
             if (Array.from(classes.values()).some((value) => value === currentClass)) classSelect.value = currentClass;
             if (Array.from(months.values()).some((value) => value === currentMonth)) monthSelect.value = currentMonth;
+            if (sessions.has(currentSession)) sessionSelect.value = currentSession;
+            else {
+                const currentSessionLabel = academicSessionFromYearMonth(new Date().getFullYear(), new Date().getMonth());
+                if (sessions.has(currentSessionLabel)) sessionSelect.value = currentSessionLabel;
+            }
         }
 
         async function loadStudentPaymentStatement() {
@@ -484,6 +519,7 @@
                         rollNo: payment.rollNo || studentRecord.rollNo || '-',
                         campusName: payment.campusName || studentRecord.campusName || studentRecord.branchName || studentRecord.campus || 'Main Campus',
                         month: payment.feeMonth || '-',
+                        session: resolvePaymentAcademicSession(payment.session, payment.feeMonth, rawDate),
                         date: normalizeHistoryDate(rawDate),
                         dateKey: normalizeDateInput(rawDate),
                         challanNumber: payment.challanNumber || '-',
@@ -507,17 +543,15 @@
             const selectedStudent = document.getElementById('statementStudentFilter').value;
             const selectedClass = document.getElementById('statementClassFilter').value;
             const selectedMonth = document.getElementById('statementMonthFilter').value;
-            const selectedDateFrom = document.getElementById('statementDateFromFilter').value;
-            const selectedDateTo = document.getElementById('statementDateToFilter').value;
+            const selectedSession = document.getElementById('statementSessionFilter').value;
 
             return paymentStatementRows.filter((row) => {
-                const searchText = `${row.student} ${row.fatherName} ${row.classGrade} ${row.rollNo} ${row.month} ${row.date} ${row.displayChallanNumber} ${row.source} ${row.status}`.toLowerCase();
+                const searchText = `${row.student} ${row.fatherName} ${row.classGrade} ${row.rollNo} ${row.month} ${row.session} ${row.date} ${row.displayChallanNumber} ${row.source} ${row.status}`.toLowerCase();
                 return (!term || searchText.includes(term)) &&
                     (!selectedStudent || String(row.studentId || row.student) === selectedStudent) &&
                     (!selectedClass || normalizedFilterValue(row.classGrade) === normalizedFilterValue(selectedClass)) &&
                     (!selectedMonth || normalizedFilterValue(row.month) === normalizedFilterValue(selectedMonth)) &&
-                    (!selectedDateFrom || row.dateKey >= selectedDateFrom) &&
-                    (!selectedDateTo || row.dateKey <= selectedDateTo);
+                    (!selectedSession || row.session === selectedSession);
             });
         }
 
@@ -595,7 +629,7 @@
                 document.getElementById('statementStudentFilter').selectedOptions[0]?.textContent || 'All Students',
                 document.getElementById('statementClassFilter').value || 'All Classes',
                 document.getElementById('statementMonthFilter').value || 'All Months',
-                `${document.getElementById('statementDateFromFilter').value || 'Start'} to ${document.getElementById('statementDateToFilter').value || 'End'}`
+                `Academic Session: ${document.getElementById('statementSessionFilter').value || 'All Sessions'}`
             ].join(' | ');
             const total = rows.reduce((sum, row) => sum + row.total, 0);
             const rowsHtml = rows.map((row, index) => `
@@ -680,12 +714,22 @@
         function getCurrentStudentStatementRows() {
             return paymentStatementRows
                 .filter((row) => getStatementStudentKey(row) === currentStatementStudentKey)
-                .filter((row) => {
-                    const from = document.getElementById('historyDateFromFilter').value;
-                    const to = document.getElementById('historyDateToFilter').value;
-                    return (!from || row.dateKey >= from) && (!to || row.dateKey <= to);
-                })
+                .filter((row) => !document.getElementById('historySessionFilter').value || row.session === document.getElementById('historySessionFilter').value)
                 .sort((a, b) => b.sortTime - a.sortTime);
+        }
+
+        function populateStudentSessionFilter(rows, selectedSession = '') {
+            const select = document.getElementById('historySessionFilter');
+            const sessions = Array.from(new Set(rows.map((row) => row.session).filter(Boolean)))
+                .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
+            select.innerHTML = '<option value="">All Sessions</option>' + sessions
+                .map((session) => `<option value="${escHistory(session)}">${escHistory(session)}</option>`)
+                .join('');
+            if (sessions.includes(selectedSession)) select.value = selectedSession;
+            else {
+                const currentSession = academicSessionFromYearMonth(new Date().getFullYear(), new Date().getMonth());
+                select.value = sessions.includes(currentSession) ? currentSession : (sessions[0] || '');
+            }
         }
 
         function renderStatementHistoryModal() {
@@ -699,7 +743,7 @@
                 document.getElementById('statementHistoryMeta').textContent = `${firstRow.fatherName} | ${firstRow.classGrade} | Roll No ${firstRow.rollNo} | Total ${moneyHistory(total)}`;
             }
             if (!rows.length) {
-                tbody.innerHTML = `<tr><td colspan="${adminActions ? 8 : 7}" class="history-empty">No payments found for selected dates.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${adminActions ? 8 : 7}" class="history-empty">No payments found for the selected session.</td></tr>`;
                 return;
             }
             tbody.innerHTML = rows.map((row, index) => `
@@ -814,9 +858,7 @@
         function openStatementHistory(encodedKey) {
             currentStatementStudentKey = decodeURIComponent(encodedKey || '');
             const rows = paymentStatementRows.filter((row) => getStatementStudentKey(row) === currentStatementStudentKey);
-            const dates = rows.map((row) => row.dateKey).filter(Boolean).sort();
-            document.getElementById('historyDateFromFilter').value = dates[0] || '';
-            document.getElementById('historyDateToFilter').value = dates[dates.length - 1] || '';
+            populateStudentSessionFilter(rows);
             document.getElementById('statementHistoryModal').classList.add('active');
             document.getElementById('statementHistoryModal').setAttribute('aria-hidden', 'false');
             renderStatementHistoryModal();
@@ -840,7 +882,7 @@
             const firstRow = rows[0];
             const total = rows.reduce((sum, row) => sum + row.amount, 0);
             const printedAt = new Date().toLocaleString('en-PK', { dateStyle: 'medium', timeStyle: 'short' });
-            const dateRange = `${document.getElementById('historyDateFromFilter').value || 'Start'} to ${document.getElementById('historyDateToFilter').value || 'End'}`;
+            const sessionLabel = document.getElementById('historySessionFilter').value || 'All Sessions';
             const rowsHtml = rows.map((row, index) => `
                 <tr>
                     <td>${index + 1}</td>
@@ -891,7 +933,7 @@
                         <div><strong>Student</strong>${escHistory(firstRow.student)}</div>
                         <div><strong>Father Name</strong>${escHistory(firstRow.fatherName)}</div>
                         <div><strong>Class / Roll No</strong>${escHistory(firstRow.classGrade)} / ${escHistory(firstRow.rollNo)}</div>
-                        <div><strong>Date Range</strong>${escHistory(dateRange)}</div>
+                        <div><strong>Academic Session</strong>${escHistory(sessionLabel)}</div>
                         <div><strong>Total Records</strong>${rows.length}</div>
                         <div><strong>Total Amount</strong>${moneyHistory(total)}</div>
                         <div><strong>Printed</strong>${escHistory(printedAt)}</div>
@@ -917,15 +959,12 @@
             printWindow.document.close();
         }
 
-        ['statementSearchInput', 'statementStudentFilter', 'statementClassFilter', 'statementMonthFilter', 'statementDateFromFilter', 'statementDateToFilter']
+        ['statementSearchInput', 'statementStudentFilter', 'statementClassFilter', 'statementMonthFilter', 'statementSessionFilter']
             .forEach((id) => {
                 document.getElementById(id).addEventListener('input', renderPaymentStatement);
                 document.getElementById(id).addEventListener('change', renderPaymentStatement);
             });
-        ['historyDateFromFilter', 'historyDateToFilter'].forEach((id) => {
-            document.getElementById(id).addEventListener('input', renderStatementHistoryModal);
-            document.getElementById(id).addEventListener('change', renderStatementHistoryModal);
-        });
+        document.getElementById('historySessionFilter').addEventListener('change', renderStatementHistoryModal);
         document.getElementById('statementHistoryModal').addEventListener('mousedown', (event) => {
             if (event.target.id === 'statementHistoryModal') closeStatementHistoryModal();
         });

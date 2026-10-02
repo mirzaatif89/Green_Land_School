@@ -2527,6 +2527,130 @@ app.post('/api/fees/challan-tokens', async (req, res) => {
     }
 });
 
+const feePaymentWriteLocks = new Map();
+
+async function withFeePaymentWriteLock(studentId, callback) {
+    const key = String(studentId || '').trim();
+    const previous = feePaymentWriteLocks.get(key) || Promise.resolve();
+    let release;
+    const current = new Promise((resolve) => { release = resolve; });
+    feePaymentWriteLocks.set(key, current);
+    await previous;
+    try {
+        return await callback();
+    } finally {
+        release();
+        if (feePaymentWriteLocks.get(key) === current) feePaymentWriteLocks.delete(key);
+    }
+}
+
+function getFeePaymentPeriods(monthValues, fallbackMonthLabel, sessionValue, paidAt) {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const values = Array.isArray(monthValues) && monthValues.length
+        ? monthValues.map((value) => String(value || '').trim()).filter(Boolean)
+        : String(fallbackMonthLabel || '').split(/[,;|]+/).map((value) => value.trim()).filter(Boolean);
+    const fallbackYear = String(fallbackMonthLabel || '').match(/\b((?:19|20)\d{2})\b/);
+    const session = String(sessionValue || '').trim();
+    const sessionRange = session.match(/\b((?:19|20)\d{2})\s*[-–/]\s*((?:19|20)?\d{2})\b/);
+    const startYear = sessionRange ? Number(sessionRange[1]) : Number(session.match(/\b((?:19|20)\d{2})\b/)?.[1] || 0);
+    const endYearToken = sessionRange?.[2] || '';
+    const endYear = endYearToken
+        ? (endYearToken.length === 2 ? Math.floor(startYear / 100) * 100 + Number(endYearToken) : Number(endYearToken))
+        : (startYear ? startYear + 1 : 0);
+    const paymentDate = paidAt ? new Date(paidAt) : new Date();
+    const validPaymentDate = !Number.isNaN(paymentDate.getTime()) ? paymentDate : new Date();
+    const periods = new Map();
+
+    values.forEach((label) => {
+        const monthMatch = label.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i);
+        if (!monthMatch) return;
+        const monthIndex = monthNames.findIndex((name) => name.toLowerCase().startsWith(monthMatch[1].slice(0, 3).toLowerCase()));
+        if (monthIndex < 0) return;
+
+        const yearMatch = label.match(/\b((?:19|20)\d{2})\b/) || fallbackYear;
+        let year = yearMatch ? Number(yearMatch[1]) : 0;
+        if (!year) {
+            if (startYear) year = monthIndex >= 6 ? startYear : endYear;
+            else {
+                const dateSessionStart = validPaymentDate.getFullYear() - (validPaymentDate.getMonth() < 6 ? 1 : 0);
+                year = monthIndex >= 6 ? dateSessionStart : dateSessionStart + 1;
+            }
+        }
+
+        const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+        periods.set(key, { key, label: `${monthNames[monthIndex]} ${year}`, monthIndex, year });
+    });
+
+    return Array.from(periods.values());
+}
+
+async function recordFeePaymentWithMonthlyLimit({ FeePayment, studentId, challanNumber, feeMonth, feeMonths, session, amount, fullAmount, paidAt, buildPayment }) {
+    return withFeePaymentWriteLock(studentId, async () => {
+        const existingPayment = await FeePayment.findByPk(challanNumber);
+        const existingStatus = String(existingPayment?.status || '');
+        if (existingPayment && ['Paid', 'Partial'].includes(existingStatus)) {
+            if (String(existingPayment.studentId || '') !== String(studentId || '')) {
+                const error = new Error('This challan number is already assigned to another student.');
+                error.statusCode = 409;
+                throw error;
+            }
+            return { payment: existingPayment.toJSON(), alreadyRecorded: true, remainingDue: 0 };
+        }
+
+        const targetPeriods = getFeePaymentPeriods(feeMonths, feeMonth, session, paidAt);
+        let remainingDue = Math.max(Number(fullAmount) - Number(amount), 0);
+        let paymentStatus = remainingDue > 0 ? 'Partial' : 'Paid';
+        if (targetPeriods.length) {
+            const monthlyLimit = Number(fullAmount) / targetPeriods.length;
+            if (!Number.isFinite(monthlyLimit) || monthlyLimit <= 0) {
+                const error = new Error('The monthly fee amount is invalid, so this payment was not recorded.');
+                error.statusCode = 400;
+                throw error;
+            }
+
+            const recordedPayments = await FeePayment.findAll({
+                where: {
+                    studentId,
+                    status: { [Op.in]: ['Paid', 'Partial'] }
+                }
+            });
+            const alreadyPaidByPeriod = new Map();
+            recordedPayments.forEach((record) => {
+                if (String(record.challanNumber || '') === String(challanNumber || '')) return;
+                const recordPeriods = getFeePaymentPeriods([], record.feeMonth, record.session, record.paidAt);
+                if (!recordPeriods.length) return;
+                const recordAmount = Number(String(record.amount ?? 0).replace(/,/g, ''));
+                if (!Number.isFinite(recordAmount) || recordAmount <= 0) return;
+                const amountPerPeriod = recordAmount / recordPeriods.length;
+                recordPeriods.forEach((period) => {
+                    alreadyPaidByPeriod.set(period.key, (alreadyPaidByPeriod.get(period.key) || 0) + amountPerPeriod);
+                });
+            });
+
+            const paymentAmount = Number(amount);
+            const paymentPerPeriod = paymentAmount / targetPeriods.length;
+            remainingDue = 0;
+            paymentStatus = 'Paid';
+            for (const period of targetPeriods) {
+                const alreadyPaid = alreadyPaidByPeriod.get(period.key) || 0;
+                const proposedTotal = alreadyPaid + paymentPerPeriod;
+                if (proposedTotal > monthlyLimit + 0.009) {
+                    const remaining = Math.max(monthlyLimit - alreadyPaid, 0);
+                    const error = new Error(`${period.label} already has PKR ${alreadyPaid.toLocaleString('en-PK', { maximumFractionDigits: 2 })} paid. Only PKR ${remaining.toLocaleString('en-PK', { maximumFractionDigits: 2 })} remains from the PKR ${monthlyLimit.toLocaleString('en-PK', { maximumFractionDigits: 2 })} monthly fee.`);
+                    error.statusCode = 409;
+                    throw error;
+                }
+                remainingDue += Math.max(monthlyLimit - proposedTotal, 0);
+                if (proposedTotal + 0.009 < monthlyLimit) paymentStatus = 'Partial';
+            }
+        }
+
+        const payment = buildPayment(existingPayment, paymentStatus);
+        await FeePayment.upsert(payment);
+        return { payment, alreadyRecorded: false, remainingDue };
+    });
+}
+
 app.post('/api/fees/manual-payment', async (req, res) => {
     if (!sequelize) {
         return res.status(503).json({ success: false, message: 'Database offline' });
@@ -2567,8 +2691,6 @@ app.post('/api/fees/manual-payment', async (req, res) => {
 
         const parsedFullAmount = Number(String(fullAmount ?? amount ?? student.monthlyFee ?? 0).replace(/,/g, ''));
         const safeFullAmount = Number.isFinite(parsedFullAmount) && parsedFullAmount > 0 ? parsedFullAmount : paymentAmount;
-        const remainingDue = Math.max(safeFullAmount - paymentAmount, 0);
-        const resolvedStatus = remainingDue > 0 ? 'Partial' : 'Paid';
 
         const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -2590,32 +2712,38 @@ app.post('/api/fees/manual-payment', async (req, res) => {
         const feeMonthRecorded = selectedMonths.length ? selectedMonths.join(', ') : 'Dues';
         const safeChallanNumber = String(challanNumber || '').trim() || `MAN-${Date.now()}`;
 
-        const existingPayment = await FeePayment.findByPk(safeChallanNumber);
-        const alreadyRecorded = existingPayment && ['Paid', 'Partial'].includes(String(existingPayment.status || ''));
         const requestedPaymentDate = String(paymentDate || '').trim();
         const parsedPaymentDate = requestedPaymentDate ? new Date(`${requestedPaymentDate}T12:00:00`) : null;
-        const paidAt = existingPayment?.paidAt || (parsedPaymentDate && !Number.isNaN(parsedPaymentDate.getTime()) ? parsedPaymentDate : new Date());
-        const paymentDateLabel = paidAt.toLocaleDateString('en-GB');
-
-        const newPaymentRow = {
-            challanNumber: safeChallanNumber,
+        const requestedPaidAt = parsedPaymentDate && !Number.isNaN(parsedPaymentDate.getTime()) ? parsedPaymentDate : new Date();
+        const { payment: paymentRow, alreadyRecorded } = await recordFeePaymentWithMonthlyLimit({
+            FeePayment,
             studentId,
-            studentName: studentName || student.fullName || '',
-            rollNo: rollNo || student.rollNo || '',
-            classGrade: classGrade || student.classGrade || '',
-            session: session || '',
+            challanNumber: safeChallanNumber,
             feeMonth: feeMonthRecorded,
+            feeMonths: selectedMonths,
+            session,
             amount: paymentAmount,
-            status: resolvedStatus,
-            paidAt,
-            paymentDateLabel,
-            paymentSource: 'Manual'
-        };
-
-        const paymentRow = alreadyRecorded ? existingPayment.toJSON() : newPaymentRow;
-        if (!alreadyRecorded) {
-            await FeePayment.upsert(newPaymentRow);
-        }
+            fullAmount: safeFullAmount,
+            paidAt: requestedPaidAt,
+            buildPayment: (existingPayment, paymentStatus) => {
+                const paidAt = existingPayment?.paidAt || requestedPaidAt;
+                return {
+                    challanNumber: safeChallanNumber,
+                    studentId,
+                    studentName: studentName || student.fullName || '',
+                    rollNo: rollNo || student.rollNo || '',
+                    classGrade: classGrade || student.classGrade || '',
+                    session: session || '',
+                    feeMonth: feeMonthRecorded,
+                    amount: paymentAmount,
+                    status: paymentStatus,
+                    paidAt,
+                    paymentDateLabel: paidAt.toLocaleDateString('en-GB'),
+                    paymentSource: 'Manual'
+                };
+            }
+        });
+        const paymentDateLabel = paymentRow.paymentDateLabel || new Date(paymentRow.paidAt || requestedPaidAt).toLocaleDateString('en-GB');
 
         if (!alreadyRecorded && FeeDueBalance) {
             const existingDue = await FeeDueBalance.findByPk(studentId);
@@ -2635,10 +2763,10 @@ app.post('/api/fees/manual-payment', async (req, res) => {
         const currentShortLower = currentMonthName.slice(0, 3).toLowerCase();
         const currentMonthPaid = selectedMonths.some((month) => {
             const lower = String(month || '').toLowerCase();
-            return lower === currentLower || lower === currentShortLower;
+            return lower.includes(currentLower) || lower.includes(currentShortLower);
         });
 
-        if (!alreadyRecorded && currentMonthPaid && resolvedStatus === 'Paid') {
+        if (!alreadyRecorded && currentMonthPaid && paymentRow.status === 'Paid') {
             await Student.update({
                 feesStatus: 'Paid',
                 paymentDate: paymentDateLabel
@@ -2653,7 +2781,7 @@ app.post('/api/fees/manual-payment', async (req, res) => {
 
         return res.json({ success: true, payment: paymentRow, alreadyRecorded });
     } catch (error) {
-        return res.status(500).json({ success: false, message: error.message || 'Manual payment failed.' });
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Manual payment failed.' });
     }
 });
 
@@ -2678,6 +2806,75 @@ app.get('/api/fees/payments', async (req, res) => {
             success: false,
             message: error.message || 'Fee payments could not be loaded.'
         });
+    }
+});
+
+app.delete('/api/fees/payments/:challanNumber', authenticateToken, async (req, res) => {
+    if (String(req.user?.role || '') !== 'Admin') {
+        return res.status(403).json({ success: false, message: 'Only an admin can remove a fee payment record.' });
+    }
+    if (!sequelize) {
+        return res.status(503).json({ success: false, message: 'Database offline' });
+    }
+
+    try {
+        const { FeePayment, FeeDueBalance, Student } = sequelize.models;
+        const challanNumber = String(req.params.challanNumber || '').trim();
+        const payment = await FeePayment.findByPk(challanNumber);
+        if (!payment || !['Paid', 'Partial'].includes(String(payment.status || ''))) {
+            return res.status(404).json({ success: false, message: 'Active payment record was not found.' });
+        }
+
+        const amount = Number(payment.amount || 0);
+        await payment.update({ status: 'Voided', paymentSource: 'Correction' });
+
+        if (FeeDueBalance && Number.isFinite(amount) && amount > 0) {
+            const dueRow = await FeeDueBalance.findByPk(payment.studentId);
+            const currentBalance = Number(dueRow?.balance || 0);
+            await FeeDueBalance.upsert({
+                studentId: payment.studentId,
+                balance: (Number.isFinite(currentBalance) ? Math.max(currentBalance, 0) : 0) + amount,
+                updatedAtLabel: new Date().toLocaleString('en-GB')
+            });
+        }
+
+        const now = new Date();
+        const pakistanDateParts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Karachi',
+            year: 'numeric',
+            month: '2-digit'
+        }).formatToParts(now);
+        const currentYear = pakistanDateParts.find((part) => part.type === 'year')?.value || String(now.getFullYear());
+        const currentMonth = pakistanDateParts.find((part) => part.type === 'month')?.value || String(now.getMonth() + 1).padStart(2, '0');
+        const currentPeriodKey = `${currentYear}-${currentMonth}`;
+        const removedPeriods = getFeePaymentPeriods([], payment.feeMonth, payment.session, payment.paidAt);
+        if (removedPeriods.some((period) => period.key === currentPeriodKey)) {
+            const remainingPayments = await FeePayment.findAll({
+                where: {
+                    studentId: payment.studentId,
+                    status: { [Op.in]: ['Paid', 'Partial'] }
+                }
+            });
+            const anyCurrentMonthPayment = remainingPayments.some((record) =>
+                getFeePaymentPeriods([], record.feeMonth, record.session, record.paidAt).some((period) => period.key === currentPeriodKey)
+            );
+            if (!anyCurrentMonthPayment) {
+                await Student.update({ feesStatus: 'Pending', paymentDate: null }, { where: { id: payment.studentId } });
+            }
+        }
+
+        const students = await Student.findAll();
+        io.emit('students_update', students);
+        io.emit('fee_payment_update', {
+            studentId: payment.studentId,
+            challanNumber,
+            feeMonth: payment.feeMonth || '',
+            status: 'Voided'
+        });
+
+        return res.json({ success: true, message: 'Payment was removed and its amount returned to the student due balance.' });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message || 'Payment record could not be removed.' });
     }
 });
 
@@ -2865,10 +3062,7 @@ app.get('/api/fees/pay/:token', async (req, res) => {
             }));
         }
 
-        const existingPayment = await FeePayment.findByPk(payload.challanNumber);
-        const alreadyRecorded = existingPayment && ['Paid', 'Partial'].includes(String(existingPayment.status || ''));
-        const paidAt = existingPayment?.paidAt || new Date();
-        const paymentDateLabel = paidAt.toLocaleDateString('en-GB');
+        const paidAt = new Date();
 
         const paymentAmount = Number(String(payload.amount ?? student.monthlyFee ?? 0).replace(/,/g, ''));
         if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
@@ -2881,8 +3075,6 @@ app.get('/api/fees/pay/:token', async (req, res) => {
 
         const parsedFullAmount = Number(String(payload.fullAmount ?? payload.amount ?? student.monthlyFee ?? 0).replace(/,/g, ''));
         const fullAmount = Number.isFinite(parsedFullAmount) && parsedFullAmount > 0 ? parsedFullAmount : paymentAmount;
-        const remainingDue = Math.max(fullAmount - paymentAmount, 0);
-        const resolvedStatus = remainingDue > 0 ? 'Partial' : 'Paid';
 
         const normalizeMonthList = (value) => Array.isArray(value)
             ? value.map((item) => String(item || '').trim()).filter(Boolean)
@@ -2902,25 +3094,35 @@ app.get('/api/fees/pay/:token', async (req, res) => {
         const monthsPaid = selectedMonths;
         const feeMonthRecorded = monthsPaid.length ? monthsPaid.join(', ') : 'Dues';
 
-        const newPaymentRow = {
-            challanNumber: payload.challanNumber,
+        const { payment: paymentRow, alreadyRecorded, remainingDue } = await recordFeePaymentWithMonthlyLimit({
+            FeePayment,
             studentId: payload.studentId,
-            studentName: payload.studentName || student.fullName || '',
-            rollNo: payload.rollNo || student.rollNo || '',
-            classGrade: payload.classGrade || student.classGrade || '',
-            session: payload.session || '',
+            challanNumber: payload.challanNumber,
             feeMonth: feeMonthRecorded,
+            feeMonths: monthsPaid,
+            session: payload.session,
             amount: paymentAmount,
-            status: resolvedStatus,
+            fullAmount,
             paidAt,
-            paymentDateLabel,
-            paymentSource: 'QR Scan'
-        };
-
-        const paymentRow = alreadyRecorded ? existingPayment.toJSON() : newPaymentRow;
-        if (!alreadyRecorded) {
-            await FeePayment.upsert(newPaymentRow);
-        }
+            buildPayment: (existingPayment, paymentStatus) => {
+                const savedAt = existingPayment?.paidAt || paidAt;
+                return {
+                    challanNumber: payload.challanNumber,
+                    studentId: payload.studentId,
+                    studentName: payload.studentName || student.fullName || '',
+                    rollNo: payload.rollNo || student.rollNo || '',
+                    classGrade: payload.classGrade || student.classGrade || '',
+                    session: payload.session || '',
+                    feeMonth: feeMonthRecorded,
+                    amount: paymentAmount,
+                    status: paymentStatus,
+                    paidAt: savedAt,
+                    paymentDateLabel: savedAt.toLocaleDateString('en-GB'),
+                    paymentSource: 'QR Scan'
+                };
+            }
+        });
+        const paymentDateLabel = paymentRow.paymentDateLabel || new Date(paymentRow.paidAt || paidAt).toLocaleDateString('en-GB');
 
         if (!alreadyRecorded && FeeDueBalance) {
             const existingDue = await FeeDueBalance.findByPk(payload.studentId);
@@ -2946,7 +3148,7 @@ app.get('/api/fees/pay/:token', async (req, res) => {
             const lower = String(month || '').toLowerCase();
             return lower === currentLower || lower === currentShortLower;
         });
-        if (!alreadyRecorded && resolvedStatus === 'Paid' && (shouldUpdateCurrentMonthStatus || currentMonthPaid) && monthsPaid.length) {
+        if (!alreadyRecorded && paymentRow.status === 'Paid' && (shouldUpdateCurrentMonthStatus || currentMonthPaid) && monthsPaid.length) {
             await Student.update({
                 feesStatus: 'Paid',
                 paymentDate: paymentDateLabel
@@ -2980,9 +3182,11 @@ app.get('/api/fees/pay/:token', async (req, res) => {
             success: true
         }));
     } catch (error) {
-        return res.status(400).send(renderFeePaymentPage({
-            title: 'Invalid QR Code',
-            message: 'This QR code is invalid or has expired, so the fee could not be recorded.',
+        return res.status(error.statusCode || 400).send(renderFeePaymentPage({
+            title: error.statusCode === 409 ? 'Monthly Fee Limit Reached' : 'Payment Not Recorded',
+            message: error.statusCode === 409
+                ? error.message
+                : 'This QR code is invalid or has expired, so the fee could not be recorded.',
             success: false
         }));
     }

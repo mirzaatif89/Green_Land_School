@@ -80,6 +80,7 @@ function normalizeSchoolExamType(value = '') {
 }
 let studentQuickFilterBranchCampuses = [];
 let studentColumnSearchFilter = null;
+let studentSearchDebounceTimer = 0;
 let studentExamReportRecords = null;
 let classFeeDefaults = {};
 let classFeeHistory = [];
@@ -383,6 +384,13 @@ if (typeof io !== 'undefined') {
 
     socket.on('banners_update', (data) => {
         if (isCurrentPage('dashboard.html')) updateDashboardBannerStats(data);
+    });
+
+    socket.on('complaints_update', (data) => {
+        const complaints = Array.isArray(data) ? data : (Array.isArray(data?.complaints) ? data.complaints : null);
+        if (!complaints) return;
+        localStorage.setItem(STORAGE_KEY_COMPLAINTS, JSON.stringify(complaints));
+        if (isCurrentPage('dashboard.html')) updateDashboardComplaintStats();
     });
 
     socket.on('fee_payment_update', () => {
@@ -1109,13 +1117,16 @@ document.addEventListener('DOMContentLoaded', () => {
             studentSearch.addEventListener('input', () => {
                 studentColumnSearchFilter = null;
                 studentSearch.placeholder = 'Search';
-                renderStudents();
+                window.clearTimeout(studentSearchDebounceTimer);
+                studentSearchDebounceTimer = window.setTimeout(() => {
+                    runStudentSearchFromInput(studentSearch);
+                }, 120);
             });
             studentSearch.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    studentColumnSearchFilter = null;
-                    renderStudents();
+                    window.clearTimeout(studentSearchDebounceTimer);
+                    runStudentSearchFromInput(studentSearch);
                 }
             });
         }
@@ -3504,8 +3515,7 @@ function ensureStudentRecordsNav() {
 }
 
 function ensureFacilityNav() {
-    // Facility modules are intentionally hidden from the school sidebar.
-    return;
+    // Facility links are rendered by the main and permission-aware sidebar sequences.
 }
 
 function ensureAdminSidebarCompleteness() {
@@ -3540,6 +3550,11 @@ function ensureAdminSidebarCompleteness() {
         { page: 'bills.html', label: 'Bills', icon: 'receipt' },
         { page: 'notifications.html', label: 'Notifications', icon: 'bell-ring' },
         { page: 'permissions.html', label: 'Permissions', icon: 'shield' },
+        { page: 'transport.html', label: 'Transport', icon: 'bus' },
+        { page: 'cafe.html', label: 'Cafe Records', icon: 'coffee' },
+        { page: 'library.html', label: 'Library Records', icon: 'library' },
+        { page: 'complain_box.html', label: 'Complain Box', icon: 'message-square' },
+        { page: 'visitor_books.html', label: 'Visitors Records', icon: 'clipboard-list' },
         { page: 'branch_registration.html', label: 'Branch Registration', icon: 'building-2' },
         { page: 'aboutme.html', label: 'About', icon: 'info' }
     ];
@@ -3661,6 +3676,11 @@ function renderAdminSidebarSequence() {
             ]
         },
         { type: 'link', page: 'permissions.html', label: 'Permissions', icon: 'shield' },
+        { type: 'link', page: 'transport.html', label: 'Transport', icon: 'bus' },
+        { type: 'link', page: 'cafe.html', label: 'Cafe Records', icon: 'coffee' },
+        { type: 'link', page: 'library.html', label: 'Library Records', icon: 'library' },
+        { type: 'link', page: 'complain_box.html', label: 'Complain Box', icon: 'message-square' },
+        { type: 'link', page: 'visitor_books.html', label: 'Visitors Records', icon: 'clipboard-list' },
         { type: 'link', page: 'branch_registration.html', label: 'Branch Registration', icon: 'building-2' },
         { type: 'link', page: 'aboutme.html', label: 'About', icon: 'info' },
         { type: 'logout', label: 'Logout', icon: 'log-out' }
@@ -4781,7 +4801,17 @@ function getDashboardPaymentFallbackYear(fallbackDate = '') {
 
 function getDashboardPaymentMonthKeys(value = '', fallbackDate = '') {
     const raw = String(value || '').trim();
-    if (!raw) return [];
+    const getFallbackMonthKeys = () => {
+        const dateValue = String(fallbackDate || '').trim();
+        const dayFirstDate = dateValue.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+        if (dayFirstDate) return [`${dayFirstDate[3]}-${dayFirstDate[2].padStart(2, '0')}`];
+        const yearMonthDate = dateValue.match(/^(\d{4})-(\d{2})(?:-|$)/);
+        if (yearMonthDate) return [`${yearMonthDate[1]}-${yearMonthDate[2]}`];
+        const parsedDate = new Date(dateValue);
+        if (!dateValue || Number.isNaN(parsedDate.getTime())) return [];
+        return [`${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`];
+    };
+    if (!raw) return getFallbackMonthKeys();
 
     const exactMonth = raw.match(/^(\d{4})-(\d{2})$/);
     if (exactMonth) return [`${exactMonth[1]}-${exactMonth[2]}`];
@@ -4798,10 +4828,14 @@ function getDashboardPaymentMonthKeys(value = '', fallbackDate = '') {
     const lowered = raw.toLowerCase();
     const yearMatch = lowered.match(/\b(20\d{2})\b/);
     const fallbackYear = yearMatch ? Number(yearMatch[1]) : getDashboardPaymentFallbackYear(fallbackDate);
-    return Array.from(new Set(monthNames
+    const monthKeys = Array.from(new Set(monthNames
         .map((month, index) => ({ month, index }))
         .filter(({ month }) => lowered.includes(month.toLowerCase()) || lowered.includes(month.slice(0, 3).toLowerCase()))
         .map(({ index }) => `${fallbackYear}-${String(index + 1).padStart(2, '0')}`)));
+    if (monthKeys.length) return monthKeys;
+
+    const normalizedMonth = normalizeFeeMonthToKey(raw);
+    return normalizedMonth ? [normalizedMonth] : getFallbackMonthKeys();
 }
 
 function getLatestDashboardPaymentMonthKey(payments = []) {
@@ -4824,6 +4858,7 @@ function isDashboardFeeCollectionPayment(payment = {}) {
 function getDashboardFeeStatusRevenue(students = []) {
     const monthMeta = getDashboardMonthMeta();
     const currentMonth = monthMeta.monthName;
+    const isCurrentMonth = monthMeta.monthKey === getCurrentDashboardFeeMonthKey();
     let monthlyFeesData = {};
     let paymentDetails = {};
 
@@ -4846,14 +4881,15 @@ function getDashboardFeeStatusRevenue(students = []) {
         const feeAmount = getDashboardStudentFee(student);
         if (!(feeAmount > 0)) return summary;
 
-        const monthStatus = monthlyFeesData?.[studentId]?.[currentMonth];
-        const paidRecordAmount = Math.max(parseDashboardAmount(paymentDetails?.[studentId]?.[currentMonth]?.amount), 0);
-        const studentStatus = String(student?.feesStatus || '').trim().toLowerCase();
+        const monthStatus = isCurrentMonth ? monthlyFeesData?.[studentId]?.[currentMonth] : '';
+        const paidRecordAmount = isCurrentMonth
+            ? Math.max(parseDashboardAmount(paymentDetails?.[studentId]?.[currentMonth]?.amount), 0)
+            : 0;
+        const studentStatus = isCurrentMonth ? String(student?.feesStatus || '').trim().toLowerCase() : '';
 
-        let paidAmount = 0;
-        if (monthStatus === 'Paid') paidAmount = feeAmount;
-        else if (paidRecordAmount > 0) paidAmount = Math.min(paidRecordAmount, feeAmount);
-        else if (studentStatus === 'paid') paidAmount = feeAmount;
+        const paidAmount = paidRecordAmount > 0
+            ? paidRecordAmount
+            : (monthStatus === 'Paid' || studentStatus === 'paid' ? feeAmount : 0);
 
         if (paidAmount > 0) {
             summary.total += paidAmount;
@@ -4903,23 +4939,19 @@ async function getDashboardBackendFeeStatusRevenue(students = []) {
             const matchedStudent = studentMap.get(studentId) ||
                 rollMap.get(String(payment?.rollNo || '').trim().toLowerCase()) ||
                 nameRollMap.get(`${String(payment?.studentName || '').trim().toLowerCase()}|${String(payment?.rollNo || '').trim().toLowerCase()}|${String(payment?.classGrade || '').trim().toLowerCase()}`);
-            if (!matchedStudent) return;
+            if (!matchedStudent && getSelectedDashboardCampus() !== 'all') return;
             const monthKeys = getDashboardPaymentMonthKeys(payment?.feeMonth || '', payment?.paidAt || payment?.paymentDateLabel || payment?.createdAt);
-            if (monthKeys.length && !monthKeys.includes(currentMonthKey)) return;
+            if (!monthKeys.includes(currentMonthKey)) return;
             const amount = Math.max(parseDashboardAmount(payment?.amount), 0);
             if (!(amount > 0)) return;
-            const normalizedStudentId = String(matchedStudent.id || studentId || `${payment?.studentName || ''}|${payment?.rollNo || ''}`);
+            const normalizedStudentId = String(matchedStudent?.id || studentId || payment?.challanNumber || `${payment?.studentName || ''}|${payment?.rollNo || ''}`);
             paymentMap.set(normalizedStudentId, (paymentMap.get(normalizedStudentId) || 0) + (amount / Math.max(monthKeys.length || 1, 1)));
         });
 
-        studentList.forEach((student) => {
-            const studentId = String(student?.id || '').trim();
-            if (!studentId) return;
-            const expectedFee = Math.max(getDashboardStudentFee(student), 0);
-            if (!(expectedFee > 0)) return;
-            const paidAmount = Math.min(Math.max(paymentMap.get(studentId) || 0, 0), expectedFee);
-            if (!(paidAmount > 0)) return;
-            summary.total += paidAmount;
+        paymentMap.forEach((paidAmount, studentId) => {
+            const amount = Math.max(paidAmount || 0, 0);
+            if (!(amount > 0)) return;
+            summary.total += amount;
             paidStudentIds.add(studentId);
         });
 
@@ -5010,6 +5042,7 @@ function initDashboardRevenueMonthPicker() {
 async function updateDashboardRevenueStats(studentsForDashboard) {
     const amountEl = document.getElementById('dashRevenue');
     const detailEl = document.getElementById('dashRevenueDetail');
+    const detailTextEl = document.getElementById('dashRevenueDetailText');
     if (!amountEl && !detailEl) return;
 
     const students = Array.isArray(studentsForDashboard)
@@ -5022,7 +5055,37 @@ async function updateDashboardRevenueStats(studentsForDashboard) {
 
     if (amountEl) amountEl.innerText = formatDashboardCurrency(feeSummary.total);
     if (detailEl) {
-        detailEl.textContent = `${feeSummary.paidStudents} ${feeSummary.paidStudents === 1 ? 'student' : 'students'} paid for ${feeSummary.month}${campusLabel}`;
+        const detailText = `${feeSummary.paidStudents} ${feeSummary.paidStudents === 1 ? 'student' : 'students'} paid for ${feeSummary.month}${campusLabel}`;
+        if (detailTextEl) detailTextEl.textContent = detailText;
+        else detailEl.textContent = detailText;
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+function updateDashboardNotificationStats(records) {
+    const countEl = document.getElementById('dashNotificationCount');
+    const detailEl = document.getElementById('dashNotificationDetail');
+    if (!countEl && !detailEl) return;
+
+    const notifications = Array.isArray(records) ? records : getArrayData(STORAGE_KEY_NOTIFICATIONS);
+    const total = notifications.length;
+    if (countEl) countEl.textContent = total.toLocaleString();
+    if (detailEl) {
+        detailEl.innerHTML = `<i data-lucide="bell-ring" size="16"></i> ${total} saved ${total === 1 ? 'notification' : 'notifications'}`;
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+function updateDashboardVisitorStats(records) {
+    const countEl = document.getElementById('dashVisitorCount');
+    const detailEl = document.getElementById('dashVisitorDetail');
+    if (!countEl && !detailEl) return;
+
+    const visitors = Array.isArray(records) ? records : getArrayData('eduCore_visitor_books');
+    const total = visitors.length;
+    if (countEl) countEl.textContent = total.toLocaleString();
+    if (detailEl) {
+        detailEl.innerHTML = `<i data-lucide="users-round" size="16"></i> ${total} recorded ${total === 1 ? 'visitor' : 'visitors'}`;
         if (window.lucide) window.lucide.createIcons();
     }
 }
@@ -5078,6 +5141,8 @@ function updateDashboardStats() {
     if (document.getElementById('dashStaffCount')) document.getElementById('dashStaffCount').innerText = staffMembers.length || '0';
 
     updateDashboardRevenueStats(students);
+    updateDashboardNotificationStats();
+    updateDashboardVisitorStats();
 
     updateDashboardComplaintStats();
     updateDashboardBannerStats();
@@ -5090,7 +5155,8 @@ function updateDashboardComplaintStats() {
         ? getArrayData(STORAGE_KEY_COMPLAINTS)
         : getArrayData(STORAGE_KEY_COMPLAINTS).filter((complaint) => dashboardCampusMatches(complaint, selectedCampus));
     const total = complaints.length;
-    const pending = complaints.filter((complaint) => String(complaint.status || 'Pending').toLowerCase() !== 'replied').length;
+    const resolvedStatuses = new Set(['replied', 'resolved', 'closed', 'action taken']);
+    const pending = complaints.filter((complaint) => !resolvedStatuses.has(String(complaint.status || 'Pending').trim().toLowerCase())).length;
     const countEl = document.getElementById('dashComplaintCount');
     const detailEl = document.getElementById('dashComplaintDetail');
 
@@ -5099,6 +5165,31 @@ function updateDashboardComplaintStats() {
         detailEl.innerHTML = `<i data-lucide="message-square" size="16"></i> ${pending} pending`;
         if (window.lucide) window.lucide.createIcons();
     }
+}
+
+async function loadDashboardComplaintRecords() {
+    try {
+        const token = sessionStorage.getItem('eduCore_token') || '';
+        const response = await fetch(`${API_BASE_URL}/complaints`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        const result = await parseJsonResponse(response, 'Complaints could not be loaded.');
+        if (!response.ok || result?.success === false || !Array.isArray(result?.complaints)) {
+            throw new Error(result?.message || 'Complaints could not be loaded.');
+        }
+
+        const merged = new Map();
+        getArrayData(STORAGE_KEY_COMPLAINTS).forEach((complaint, index) => {
+            if (complaint && typeof complaint === 'object') merged.set(String(complaint.id || `cached-${index}`), complaint);
+        });
+        result.complaints.forEach((complaint, index) => {
+            if (complaint && typeof complaint === 'object') merged.set(String(complaint.id || `remote-${index}`), complaint);
+        });
+        localStorage.setItem(STORAGE_KEY_COMPLAINTS, JSON.stringify(Array.from(merged.values())));
+    } catch (error) {
+        console.warn('Dashboard complaints could not be loaded:', error.message);
+    }
+    updateDashboardComplaintStats();
 }
 
 async function updateDashboardBannerStats(records) {
@@ -5132,8 +5223,19 @@ function initializeDashboardHome() {
     if (!dashStudentCount) return;
 
     initDashboardRevenueMonthPicker();
+    if (!dashStudentCount.closest('#dashboardStatsGrid')?.dataset.metricStorageBound) {
+        const dashboardGrid = dashStudentCount.closest('#dashboardStatsGrid');
+        if (dashboardGrid) dashboardGrid.dataset.metricStorageBound = 'true';
+        window.addEventListener('storage', (event) => {
+            if (!event.key || event.key === STORAGE_KEY_NOTIFICATIONS) renderNotifications();
+            if (!event.key || event.key === 'eduCore_visitor_books') updateDashboardVisitorStats();
+            if (!event.key || event.key === STORAGE_KEY_COMPLAINTS) updateDashboardComplaintStats();
+            if (!event.key || ['eduCore_monthly_fees', 'eduCore_payment_details'].includes(event.key)) updateDashboardRevenueStats();
+        });
+    }
     populateDashboardCampusFilter().then(updateDashboardStats).catch(() => updateDashboardStats());
     updateDashboardStats();
+    loadDashboardComplaintRecords();
     if (!dashboardActiveSessionsInterval) {
         dashboardActiveSessionsInterval = window.setInterval(updateActivePortalLogins, 30000);
     }
@@ -9994,6 +10096,7 @@ function pushNotification(title, message, type = 'info') {
 }
 
 function renderNotifications() {
+    updateDashboardNotificationStats();
     const list = document.getElementById('notificationList');
     const badge = document.getElementById('notifBadge');
     const panel = document.getElementById('notificationPanel');

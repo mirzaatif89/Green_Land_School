@@ -5,7 +5,7 @@ const PRECACHE_URLS = [
     '/mobile.js?v=20260730-animated-shell-1',
     '/mobile.webmanifest',
     '/images/logo.jpeg',
-    '/school-theme.css?v=20260924-refined',
+    '/school-theme.css?v=20261002-dashboard-cards-125',
     '/school-branding.js?v=20260924'
 ];
 

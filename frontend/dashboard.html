@@ -290,7 +290,7 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <link rel="stylesheet" href="school-theme.css?v=20261002-dashboard-cards-125">
     <script src="school-branding.js?v=20260924"></script>
 </head>
 
@@ -354,6 +354,26 @@
                 <a href="permissions.html" class="nav-item">
                     <i data-lucide="shield"></i>
                     <span>Permissions</span>
+                </a>
+                <a href="transport.html" class="nav-item">
+                    <i data-lucide="bus"></i>
+                    <span>Transport</span>
+                </a>
+                <a href="cafe.html" class="nav-item">
+                    <i data-lucide="coffee"></i>
+                    <span>Cafe Records</span>
+                </a>
+                <a href="library.html" class="nav-item">
+                    <i data-lucide="library"></i>
+                    <span>Library Records</span>
+                </a>
+                <a href="complain_box.html" class="nav-item">
+                    <i data-lucide="message-square"></i>
+                    <span>Complain Box</span>
+                </a>
+                <a href="visitor_books.html" class="nav-item">
+                    <i data-lucide="clipboard-list"></i>
+                    <span>Visitors Records</span>
                 </a>
                 <a href="aboutme.html" class="nav-item">
                     <i data-lucide="info"></i>
@@ -439,6 +459,18 @@
                     </div>
                 </a>
 
+                <a href="revenue.html" class="card dashboard-revenue-card" data-dashboard-card>
+                    <div class="card-title">Total Revenue</div>
+                    <div class="card-value" id="dashRevenue">PKR 0</div>
+                    <div class="card-trend trend-up" id="dashRevenueDetail">
+                        <i data-lucide="trending-up" size="16"></i>
+                        <span id="dashRevenueDetailText">0 students paid this month</span>
+                    </div>
+                    <div class="card-icon">
+                        <i data-lucide="trending-up"></i>
+                    </div>
+                </a>
+
                 <div class="card card-clickable" data-admin-only-card id="activeLoginsCard" title="View active sessions">
                     <div class="card-title">Active Portal Logins</div>
                     <div class="card-value" id="dashActiveLogins">...</div>
@@ -449,6 +481,39 @@
                         <i data-lucide="monitor-up"></i>
                     </div>
                 </div>
+
+                <a href="notifications.html" class="card" data-dashboard-card>
+                    <div class="card-title">Total Notifications</div>
+                    <div class="card-value" id="dashNotificationCount">0</div>
+                    <div class="card-trend trend-up" id="dashNotificationDetail">
+                        <i data-lucide="bell-ring" size="16"></i> View notifications
+                    </div>
+                    <div class="card-icon">
+                        <i data-lucide="bell-ring"></i>
+                    </div>
+                </a>
+
+                <a href="visitor_books.html" class="card" data-dashboard-card>
+                    <div class="card-title">Total Visitors</div>
+                    <div class="card-value" id="dashVisitorCount">0</div>
+                    <div class="card-trend trend-up" id="dashVisitorDetail">
+                        <i data-lucide="users-round" size="16"></i> Visitor book records
+                    </div>
+                    <div class="card-icon">
+                        <i data-lucide="users-round"></i>
+                    </div>
+                </a>
+
+                <a href="complain_box.html" class="card" data-dashboard-card>
+                    <div class="card-title">Total Complaints</div>
+                    <div class="card-value" id="dashComplaintCount">0</div>
+                    <div class="card-trend trend-up" id="dashComplaintDetail">
+                        <i data-lucide="message-square" size="16"></i> 0 pending
+                    </div>
+                    <div class="card-icon">
+                        <i data-lucide="message-square"></i>
+                    </div>
+                </a>
 
                 <a href="banners.html" class="card" data-dashboard-card>
                     <div class="card-title">Live Banners</div>
@@ -496,8 +561,8 @@
         </div>
     </div>
 
-    <script src="auth.js?v=20260814-live-auth-fix1"></script>
-    <script src="script.js?v=20260902-monthly-revenue-r2"></script>
+    <script src="auth.js?v=20261002-sidebar-facility-nav1"></script>
+    <script src="script.js?v=20261002-revenue-fix1"></script>
     <script>
         async function executeAllDashboardEmails() {
             const button = document.getElementById('dashboardExecuteEmailsBtn');

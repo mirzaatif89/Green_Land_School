@@ -841,6 +841,11 @@ if (window.Capacitor?.isNativePlatform?.()) {
                     ]
                 },
                 { type: 'link', page: 'permissions.html', label: 'Permissions', icon: 'shield' },
+                { type: 'link', page: 'transport.html', label: 'Transport', icon: 'bus' },
+                { type: 'link', page: 'cafe.html', label: 'Cafe Records', icon: 'coffee' },
+                { type: 'link', page: 'library.html', label: 'Library Records', icon: 'library' },
+                { type: 'link', page: 'complain_box.html', label: 'Complain Box', icon: 'message-square' },
+                { type: 'link', page: 'visitor_books.html', label: 'Visitors Records', icon: 'clipboard-list' },
                 { type: 'link', page: 'branch_registration.html', label: 'Branch Registration', icon: 'building-2' },
                 { type: 'link', page: 'aboutme.html', label: 'About', icon: 'info' },
                 { type: 'logout', label: 'Logout', icon: 'log-out' }
@@ -934,7 +939,7 @@ if (window.Capacitor?.isNativePlatform?.()) {
                 if (user.role !== 'Admin') card.remove();
             });
 
-            // Keep only the first 5 dashboard cards and prevent permission modules from adding additional cards.
+            // Keep every dashboard card the signed-in user is allowed to open.
             if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
 
             if (!grid.querySelector('.card')) {

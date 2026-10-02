@@ -1130,7 +1130,7 @@
             justify-content: flex-end;
         }
     </style>
-    <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
+    <link rel="stylesheet" href="school-theme.css?v=20261002-dashboard-cards-125">
     <script src="school-branding.js?v=20260924"></script>
 </head>
 
@@ -1230,9 +1230,7 @@
                         <div class="student-search-control">
                             <i data-lucide="search"></i>
                             <input type="text" id="studentSearchInput" placeholder="Search"
-                                autocomplete="off"
-                                oninput="runStudentSearchFromInput(this)"
-                                onkeydown="if(event.key==='Enter'){event.preventDefault();runStudentSearchFromInput(this);}">
+                                autocomplete="off" aria-label="Search students by name, ID, class, or contact">
                         </div>
                     </div>
                     <div class="student-filter-group">
@@ -1551,8 +1549,8 @@
         </div>
     </div>
 
-    <script src="auth.js?v=20260902-single-active-performance"></script>
-    <script src="script.js?v=20260926-exam-types"></script>
+    <script src="auth.js?v=20261002-sidebar-facility-nav1"></script>
+    <script src="script.js?v=20261002-sidebar-facility-nav1"></script>
     <script>
         if (window.location.hash === '#status') {
             document.body.classList.add('students-status-view');

@@ -88,6 +88,11 @@
             ]
         },
         { type: 'link', page: 'permissions', label: 'Permissions', icon: 'shield' },
+        { type: 'link', page: 'transport', label: 'Transport', icon: 'bus' },
+        { type: 'link', page: 'cafe', label: 'Cafe Records', icon: 'coffee' },
+        { type: 'link', page: 'library', label: 'Library Records', icon: 'library' },
+        { type: 'link', page: 'complain_box', label: 'Complain Box', icon: 'message-square' },
+        { type: 'link', page: 'visitor_books', label: 'Visitors Records', icon: 'clipboard-list' },
         { type: 'link', page: 'branch_registration', label: 'Branch Registration', icon: 'building-2' },
         { type: 'link', page: 'aboutme', label: 'About', icon: 'info' },
         { type: 'logout', label: 'Logout', icon: 'log-out' }
