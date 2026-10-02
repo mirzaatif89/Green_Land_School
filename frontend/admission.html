@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#12382c">
+  <meta name="description" content="Apply online to Green Land Model School Jand.">
+  <title>Online Admission | Green Land Model School Jand</title>
+  <link rel="icon" type="image/jpeg" href="images/logo.jpeg">
+  <link rel="stylesheet" href="website.css?v=greenland-admission-20260926-v1">
+  <link rel="stylesheet" href="admission.css?v=20260926-v1">
+  <script src="admission.js?v=20260926-v1" defer></script>
+</head>
+<body class="admission-page">
+  <header class="site-header">
+    <nav class="wrap admission-nav" aria-label="Admission page navigation">
+      <a class="brand" href="/"><img src="images/logo.jpeg" width="56" height="56" alt=""><span>Green Land<small>MODEL SCHOOL JAND</small></span></a>
+      <a class="admission-back" href="/">Back to school website</a>
+    </nav>
+  </header>
+  <main class="admission-main">
+    <section class="admission-intro">
+      <p class="eyebrow">START YOUR CHILD’S JOURNEY</p>
+      <h1>Online admission<br><em>enquiry</em></h1>
+      <p>Share your child’s details and our admissions team will contact you to discuss the next steps.</p>
+      <div class="admission-contact"><span>Need help?</span><a href="tel:+923005203469">+92 300 5203469</a></div>
+    </section>
+    <section class="admission-form-card" aria-labelledby="application-title">
+      <div class="admission-card-heading"><span class="admission-step">01</span><div><h2 id="application-title">Student application</h2><p>Fields marked * are required.</p></div></div>
+      <form id="onlineAdmissionForm">
+        <h3>Student details</h3>
+        <div class="admission-fields">
+          <label>Student's full name *<input name="studentName" autocomplete="name" maxlength="100" required></label>
+          <label>Father's full name *<input name="fatherName" maxlength="100" required></label>
+          <label>Date of birth *<input name="dateOfBirth" type="date" required></label>
+          <label>Gender *<select name="gender" required><option value="">Select gender</option><option>Female</option><option>Male</option><option>Other</option></select></label>
+          <label>Class applying for *<select name="className" required><option value="">Select class</option><option>Play Group</option><option>Nursery</option><option>Prep</option><option>Class One</option><option>Class Two</option><option>Class Three</option><option>Class Four</option><option>Class Five</option><option>Class Six</option><option>Class Seven</option><option>Class Eight</option><option>Class Nine</option><option>Class Ten</option><option>Graduate</option></select></label>
+          <label>Preferred campus<input name="campus" maxlength="100" placeholder="e.g. Main Campus"></label>
+          <label>Previous school<input name="previousSchool" maxlength="150"></label>
+          <label>Last class attended<input name="previousClass" maxlength="60"></label>
+          <label>Form B / birth certificate no.<input name="formB" maxlength="50"></label>
+          <label>Student CNIC (if available)<input name="cnic" maxlength="30" inputmode="numeric" autocomplete="off"></label>
+        </div>
+        <h3>Parent / guardian details</h3>
+        <div class="admission-fields">
+          <label>Parent / guardian full name *<input name="parentName" maxlength="100" required></label>
+          <label>Relationship to student *<select name="relationship" required><option value="">Select relationship</option><option>Father</option><option>Mother</option><option>Guardian</option><option>Other</option></select></label>
+          <label>Primary contact number *<input name="phone" type="tel" autocomplete="tel" maxlength="30" required></label>
+          <label>Alternate contact number<input name="alternatePhone" type="tel" maxlength="30"></label>
+          <label>Email address<input name="email" type="email" autocomplete="email" maxlength="150"></label>
+          <label class="admission-wide">Home address *<textarea name="address" rows="3" maxlength="500" autocomplete="street-address" required></textarea></label>
+          <label class="admission-wide">Anything else we should know?<textarea name="message" rows="3" maxlength="1000" placeholder="Optional message"></textarea></label>
+        </div>
+        <label class="admission-trap" aria-hidden="true">Leave this field empty<input name="website" tabindex="-1" autocomplete="off"></label>
+        <div class="admission-submit-row"><p id="admissionFormStatus" role="status" aria-live="polite"></p><button class="button button-contact" id="admissionSubmit" type="submit">Submit application <span aria-hidden="true">→</span></button></div>
+      </form>
+    </section>
+  </main>
+  <div class="admission-notice-backdrop" id="admissionNotice" hidden>
+    <section class="admission-notice" role="dialog" aria-modal="true" aria-labelledby="admissionNoticeTitle" aria-describedby="admissionNoticeMessage">
+      <div class="admission-notice-icon" id="admissionNoticeIcon" aria-hidden="true">✓</div>
+      <h2 id="admissionNoticeTitle">Application received</h2>
+      <p id="admissionNoticeMessage"></p>
+      <button class="button button-contact" id="admissionNoticeClose" type="button">Done</button>
+    </section>
+  </div>
+  <footer class="admission-footer"><div class="wrap"><span>Green Land Model School Jand</span><a href="/">Return to school website</a></div></footer>
+</body>
+</html>

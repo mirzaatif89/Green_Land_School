@@ -1254,9 +1254,10 @@
                     <div class="student-filter-group exam-report-filter" id="examReportTypeFilterWrap" style="display:none">
                         <label for="examReportType">Select Exam Type</label>
                         <select id="examReportType" class="student-filter-control">
+                            <option value="First Term">First Term</option>
                             <option value="Mid Term">Mid Term</option>
-                            <option value="Annual">Annual</option>
-                            <option value="Supply">Supply</option>
+                            <option value="Third Term">Third Term</option>
+                            <option value="Final">Final</option>
                         </select>
                     </div>
                     <button class="btn btn-outline student-print-btn" type="button" onclick="printStudentsList()">
@@ -1551,7 +1552,7 @@
     </div>
 
     <script src="auth.js?v=20260902-single-active-performance"></script>
-    <script src="script.js?v=20260925-exam-report-cleanup"></script>
+    <script src="script.js?v=20260926-exam-types"></script>
     <script>
         if (window.location.hash === '#status') {
             document.body.classList.add('students-status-view');

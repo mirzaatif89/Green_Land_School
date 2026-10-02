@@ -26,62 +26,15 @@
             background: #ffffff;
         }
 
-        .applications-grid {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .application-card {
-            display: grid;
-            gap: 0.85rem;
-            border: 1px solid rgba(32, 176, 164, 0.18);
-            border-radius: 10px;
-            background: #ffffff;
-            box-shadow: var(--shadow-sm);
-            padding: 1rem;
-        }
-
-        .application-head {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 1rem;
-        }
-
-        .application-head h3 {
-            margin: 0;
-            color: var(--text-primary);
-            overflow-wrap: anywhere;
-        }
-
-        .application-meta {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.75rem;
-        }
-
-        .application-meta span {
-            display: grid;
-            gap: 0.2rem;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 0.7rem;
-            color: var(--text-secondary);
-            background: #f8fffe;
-            overflow-wrap: anywhere;
-        }
-
-        .application-meta strong {
-            color: var(--text-primary);
-            font-size: 0.9rem;
-        }
-
-        .application-message {
-            margin: 0;
-            color: var(--text-secondary);
-            line-height: 1.55;
-            overflow-wrap: anywhere;
-        }
+        .applications-table-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 12px; background: #fff; box-shadow: var(--shadow-sm); }
+        .applications-table { width: 100%; border-collapse: collapse; min-width: 760px; }
+        .applications-table th, .applications-table td { padding: 0.9rem 1rem; border-bottom: 1px solid #e8efeb; text-align: left; vertical-align: middle; }
+        .applications-table th { color: #536c60; background: #f3f8f5; font-size: 0.76rem; font-weight: 800; letter-spacing: .035em; white-space: nowrap; }
+        .applications-table td { color: var(--text-primary); font-size: 0.9rem; }
+        .applications-table tbody tr:last-child td { border-bottom: 0; }
+        .applications-table tbody tr:hover { background: #fbfdfc; }
+        .applicant-name { font-weight: 800; }
+        .application-actions-select { min-width: 132px; min-height: 38px; padding: .45rem .65rem; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; color: var(--text-primary); font: inherit; cursor: pointer; }
 
         .status-pill {
             display: inline-flex;
@@ -100,16 +53,25 @@
             background: #f1e8f7;
         }
 
-        .status-pill.closed {
+        .status-pill.closed, .status-pill.rejected {
             color: #991b1b;
             background: #fee2e2;
         }
-
-        .application-actions {
-            display: flex;
-            gap: 0.65rem;
-            flex-wrap: wrap;
-        }
+        .status-pill.approved { color: #14532d; background: #dcfce7; }
+        .application-modal-backdrop { position: fixed; z-index: 1200; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(10 29 23 / 60%); }
+        .application-modal-backdrop[hidden] { display: none; }
+        .application-modal { width: min(820px, 100%); max-height: min(86vh, 900px); overflow: auto; border: 1px solid var(--border-color); border-radius: 16px; background: #fff; box-shadow: 0 24px 80px rgb(0 0 0 / 28%); }
+        .application-modal-head { position: sticky; z-index: 1; top: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px 24px; border-bottom: 1px solid #e5eee9; background: #fff; }
+        .application-modal-head h2 { margin: 0; color: var(--text-primary); }
+        .application-modal-head p { margin: 5px 0 0; color: var(--text-secondary); }
+        .application-modal-close { width: 40px; height: 40px; border: 1px solid var(--border-color); border-radius: 9px; background: #fff; cursor: pointer; font-size: 1.25rem; }
+        .application-modal-body { padding: 22px 24px 26px; }
+        .application-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
+        .application-detail { min-width: 0; padding: 12px; border: 1px solid #e3ece7; border-radius: 9px; background: #f8fbf9; }
+        .application-detail small { display: block; margin-bottom: 5px; color: var(--text-secondary); }
+        .application-detail strong { display: block; color: var(--text-primary); overflow-wrap: anywhere; }
+        .application-modal-message { margin-top: 14px; padding: 14px; border-radius: 9px; background: #f3f8f5; color: var(--text-primary); white-space: pre-wrap; }
+        body.application-modal-open { overflow: hidden; }
 
         .empty-applications {
             min-height: 260px;
@@ -123,27 +85,14 @@
             padding: 1.2rem;
         }
 
-        @media (max-width: 920px) {
-            .application-meta {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-
         @media (max-width: 560px) {
-            .admission-toolbar,
-            .application-head {
+            .admission-toolbar {
                 align-items: stretch;
                 flex-direction: column;
             }
-
-            .application-meta {
-                grid-template-columns: 1fr;
-            }
-
-            .application-actions .btn {
-                width: 100%;
-                justify-content: center;
-            }
+            .application-detail-grid { grid-template-columns: 1fr; }
+            .application-modal-backdrop { padding: 9px; }
+            .application-modal-head, .application-modal-body { padding: 16px; }
         }
     </style>
     <link rel="stylesheet" href="school-theme.css?v=20260924-refined">
@@ -183,12 +132,24 @@
                     <option value="all">All Applications</option>
                     <option value="New">New</option>
                     <option value="Contacted">Contacted</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
                     <option value="Closed">Closed</option>
                 </select>
             </section>
 
-            <section class="applications-grid" id="applicationsList"></section>
+            <section class="applications-table-wrap" id="applicationsList" aria-label="Admission applications"></section>
         </main>
+    </div>
+
+    <div class="application-modal-backdrop" id="applicationModal" hidden>
+        <section class="application-modal" role="dialog" aria-modal="true" aria-labelledby="applicationModalTitle">
+            <header class="application-modal-head">
+                <div><h2 id="applicationModalTitle">Application details</h2><p id="applicationModalSubtitle"></p></div>
+                <button class="application-modal-close" id="applicationModalClose" type="button" aria-label="Close details">&times;</button>
+            </header>
+            <div class="application-modal-body" id="applicationModalBody"></div>
+        </section>
     </div>
 
     <script src="auth.js?v=20260814-live-auth-fix1"></script>
@@ -223,7 +184,14 @@
             const normalized = String(status || 'New').toLowerCase();
             if (normalized === 'contacted') return ' contacted';
             if (normalized === 'closed') return ' closed';
+            if (normalized === 'rejected') return ' rejected';
+            if (normalized === 'approved') return ' approved';
             return '';
+        }
+
+        function admissionAuthHeaders(json = false) {
+            const token = sessionStorage.getItem('eduCore_token') || '';
+            return { ...(json ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
         }
 
         function renderApplications() {
@@ -234,47 +202,60 @@
 
             if (!records.length) {
                 list.innerHTML = '<div class="empty-applications"><div><i data-lucide="clipboard-list"></i><h3>No applications found</h3><p>New online admission requests will appear here.</p></div></div>';
-                if (window.lucide) window.lucide.createIcons();
                 return;
             }
 
-            list.innerHTML = records.map((application) => {
-                const status = application.status || 'New';
-                return `
-                    <article class="application-card">
-                        <div class="application-head">
-                            <div>
-                                <h3>${escapeHtml(application.studentName || 'Student')}</h3>
-                                <span style="color: var(--text-secondary);">Applied: ${escapeHtml(formatDate(application.createdAt))}</span>
-                            </div>
-                            <span class="status-pill${statusClass(status)}">${escapeHtml(status)}</span>
-                        </div>
-                        <div class="application-meta">
-                            <span><small>Parent Name</small><strong>${escapeHtml(application.parentName || '-')}</strong></span>
-                            <span><small>Class</small><strong>${escapeHtml(application.className || '-')}</strong></span>
-                            <span><small>Campus</small><strong>${escapeHtml(application.campus || '-')}</strong></span>
-                            <span><small>Phone</small><strong>${escapeHtml(application.phone || '-')}</strong></span>
-                            <span><small>Email</small><strong>${escapeHtml(application.email || '-')}</strong></span>
-                            <span><small>Student Age</small><strong>${escapeHtml(application.studentAge || '-')}</strong></span>
-                            <span><small>Previous School</small><strong>${escapeHtml(application.previousSchool || '-')}</strong></span>
-                            <span><small>Address</small><strong>${escapeHtml(application.address || '-')}</strong></span>
-                        </div>
-                        ${application.message ? `<p class="application-message">${escapeHtml(application.message)}</p>` : ''}
-                        <div class="application-actions">
-                            <a class="btn btn-outline" href="tel:${escapeHtml(application.phone || '')}"><i data-lucide="phone"></i> Call</a>
-                            <button class="btn btn-outline" type="button" onclick="updateApplicationStatus('${escapeHtml(application.id)}', 'Contacted')"><i data-lucide="phone-call"></i> Mark Contacted</button>
-                            <button class="btn btn-outline" type="button" onclick="updateApplicationStatus('${escapeHtml(application.id)}', 'Closed')"><i data-lucide="check-circle"></i> Close</button>
-                            <button class="btn btn-danger" type="button" onclick="deleteApplication('${escapeHtml(application.id)}')"><i data-lucide="trash-2"></i> Delete</button>
-                        </div>
-                    </article>
-                `;
-            }).join('');
-            if (window.lucide) window.lucide.createIcons();
+            list.innerHTML = `<table class="applications-table">
+                <thead><tr><th>Student Name</th><th>Father Name</th><th>Applied For Class</th><th>Date of Birth</th><th>Application Status</th><th>Actions</th></tr></thead>
+                <tbody>${records.map((application) => {
+                    const status = application.status || 'New';
+                    return `<tr>
+                        <td class="applicant-name">${escapeHtml(application.studentName || 'Student')}</td>
+                        <td>${escapeHtml(application.fatherName || '-')}</td>
+                        <td>${escapeHtml(application.className || '-')}</td>
+                        <td>${escapeHtml(application.dateOfBirth || '-')}</td>
+                        <td><span class="status-pill${statusClass(status)}">${escapeHtml(status)}</span></td>
+                        <td><select class="application-actions-select" data-application-action="true" data-id="${escapeHtml(application.id)}" aria-label="Actions for ${escapeHtml(application.studentName || 'applicant')}">
+                            <option value="">Actions</option><option value="view">View</option><option value="delete">Delete</option><option value="approve">Approved</option><option value="reject">Reject</option>
+                        </select></td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>`;
+        }
+
+        function closeApplicationModal() {
+            const modal = document.getElementById('applicationModal');
+            modal.hidden = true;
+            document.body.classList.remove('application-modal-open');
+        }
+
+        function viewApplication(id) {
+            const application = applications.find((item) => String(item.id) === String(id));
+            if (!application) return;
+            const modal = document.getElementById('applicationModal');
+            const fields = [
+                ['Student Name', application.studentName], ['Father Name', application.fatherName],
+                ['Applied For Class', application.className], ['Preferred Campus', application.campus],
+                ['Date of Birth', application.dateOfBirth], ['Gender', application.gender],
+                ['Application Status', application.status || 'New'], ['Parent / Guardian', application.parentName],
+                ['Relationship', application.relationship], ['Primary Phone', application.phone],
+                ['Alternate Phone', application.alternatePhone], ['Email', application.email],
+                ['Previous School', application.previousSchool], ['Previous Class', application.previousClass],
+                ['Form B', application.formB], ['CNIC', application.cnic], ['Home Address', application.address],
+                ['Applied On', formatDate(application.createdAt)], ['Student Record', application.studentCode || application.studentId]
+            ];
+            document.getElementById('applicationModalTitle').textContent = application.studentName || 'Application details';
+            document.getElementById('applicationModalSubtitle').textContent = `Reference: ${application.id || '-'}`;
+            document.getElementById('applicationModalBody').innerHTML = `<div class="application-detail-grid">${fields.map(([label, value]) => `<div class="application-detail"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value || '-')}</strong></div>`).join('')}</div>${application.message ? `<div class="application-modal-message"><strong>Additional message</strong><br>${escapeHtml(application.message)}</div>` : ''}`;
+            modal.hidden = false;
+            document.body.classList.add('application-modal-open');
+            document.getElementById('applicationModalClose').focus();
         }
 
         async function loadApplications() {
-            const response = await fetch(`${API_BASE_URL}/online-admissions`);
-            const data = await response.json();
+            const response = await fetch(`${API_BASE_URL}/online-admissions`, { headers: admissionAuthHeaders() });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || 'Applications could not be loaded. Please sign in again.');
             applications = Array.isArray(data.applications) ? data.applications : [];
             renderApplications();
         }
@@ -282,7 +263,7 @@
         async function updateApplicationStatus(id, status) {
             const response = await fetch(`${API_BASE_URL}/online-admissions/${encodeURIComponent(id)}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: admissionAuthHeaders(true),
                 body: JSON.stringify({ status })
             });
             const data = await response.json();
@@ -290,30 +271,75 @@
                 alert(data.message || 'Application could not be updated.');
                 return;
             }
-            applications = Array.isArray(data.applications) ? data.applications : applications.map((item) => item.id === id ? { ...item, status } : item);
+            applications = Array.isArray(data.applications) ? data.applications : applications.map((item) => String(item.id) === String(id) ? { ...item, status } : item);
             renderApplications();
         }
 
         async function deleteApplication(id) {
             if (!confirm('Delete this admission application?')) return;
-            const response = await fetch(`${API_BASE_URL}/online-admissions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            const response = await fetch(`${API_BASE_URL}/online-admissions/${encodeURIComponent(id)}`, { method: 'DELETE', headers: admissionAuthHeaders() });
             const data = await response.json();
+            if (!response.ok) { alert(data.message || 'Application could not be deleted.'); return; }
             applications = Array.isArray(data.applications) ? data.applications : applications.filter((item) => String(item.id) !== String(id));
             renderApplications();
         }
 
-        document.getElementById('applicationStatusFilter')?.addEventListener('change', renderApplications);
-
-        if (window.socket) {
-            window.socket.on('online_admissions_update', (records) => {
-                applications = Array.isArray(records) ? records : [];
-                renderApplications();
+        async function approveApplication(id) {
+            const application = applications.find((item) => String(item.id) === String(id));
+            if (!application || application.status === 'Approved') return;
+            if (!confirm(`Approve ${application.studentName || 'this applicant'} and add them to Students as ${application.className || 'the selected class'}?`)) return;
+            const response = await fetch(`${API_BASE_URL}/online-admissions/${encodeURIComponent(id)}/approve`, {
+                method: 'POST',
+                headers: admissionAuthHeaders(true),
+                body: JSON.stringify({})
             });
+            const data = await response.json().catch(() => ({}));
+            if (response.status === 404 && /route not found|cannot post/i.test(String(data.message || ''))) {
+                await updateApplicationStatus(id, 'Approved');
+                alert('Application marked Approved. Restart the local Node server to enable automatic student creation for this action.');
+                return;
+            }
+            if (!response.ok || !data.success) { alert(data.message || 'Student could not be added.'); return; }
+            applications = Array.isArray(data.applications) ? data.applications : applications.map((item) => String(item.id) === String(id) ? data.application : item);
+            renderApplications();
+            alert(`${application.studentName || 'Student'} approved and added to Students (${data.student?.studentCode || data.application?.studentId || ''}).`);
         }
+
+        document.getElementById('applicationsList')?.addEventListener('change', async (event) => {
+            const select = event.target.closest('[data-application-action]');
+            if (!select || !select.value) return;
+            const action = select.value;
+            const { id } = select.dataset;
+            select.disabled = true;
+            try {
+                if (action === 'view') viewApplication(id);
+                if (action === 'delete') await deleteApplication(id);
+                if (action === 'approve') await approveApplication(id);
+                if (action === 'reject') await updateApplicationStatus(id, 'Rejected');
+            } catch (error) {
+                alert(error.message || 'The action could not be completed.');
+            } finally {
+                if (select.isConnected) {
+                    select.value = '';
+                    select.disabled = false;
+                }
+            }
+        });
+
+        document.getElementById('applicationModalClose')?.addEventListener('click', closeApplicationModal);
+        document.getElementById('applicationModal')?.addEventListener('click', (event) => {
+            if (event.target.id === 'applicationModal') closeApplicationModal();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') closeApplicationModal();
+        });
+
+        document.getElementById('applicationStatusFilter')?.addEventListener('change', renderApplications);
 
         loadApplications().catch((error) => {
             document.getElementById('applicationsList').innerHTML = `<div class="empty-applications"><strong>Applications could not be loaded</strong><p>${escapeHtml(error.message || '')}</p></div>`;
         });
+        window.setInterval(() => loadApplications().catch(() => {}), 30000);
     </script>
 </body>
 

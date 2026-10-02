@@ -13,33 +13,19 @@ if (Test-Path $outputPath) {
 }
 
 $excludePrefixes = @(
-    ".agents\",
     ".agents/",
-    ".codex\",
     ".codex/",
-    ".git\",
     ".git/",
-    ".github\",
     ".github/",
-    ".deploy_tmp\",
     ".deploy_tmp/",
-    ".vscode\",
     ".vscode/",
-    "android\\",
     "android/",
-    "ios\\",
     "ios/",
-    "Final-Apps\\",
     "Final-Apps/",
-    "Archive\\",
     "Archive/",
-    "docs\\",
     "docs/",
-    "data\\",
     "data/",
-    "node_modules\",
     "node_modules/",
-    "tools\",
     "tools/"
 )
 
@@ -49,7 +35,7 @@ if ($IncludeNodeModules) {
 
 $allFiles = Get-ChildItem -Path $projectRoot -Recurse -File -Force
 $filesToPack = $allFiles | Where-Object {
-    $relative = $_.FullName.Substring($projectRoot.Length).TrimStart('\', '/')
+    $relative = $_.FullName.Substring($projectRoot.Length).TrimStart('\', '/').Replace('\', '/')
     if ($excludePrefixes | Where-Object { $relative.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase) }) {
         return $false
     }

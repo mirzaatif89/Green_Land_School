@@ -833,10 +833,8 @@
                             <div class="fine-rule-grid">
                                 <div class="fine-rule-field">
                                     <label for="feeFineFrequency">Fine Type</label>
-                                    <select id="feeFineFrequency">
+                                    <select id="feeFineFrequency" disabled>
                                         <option value="day">Per Day</option>
-                                        <option value="week">Per Week</option>
-                                        <option value="month">Per Month</option>
                                     </select>
                                 </div>
                                 <div class="fine-rule-field">
@@ -844,12 +842,12 @@
                                     <input id="feeFineAmount" type="number" min="0" step="1" placeholder="PKR">
                                 </div>
                                 <div class="fine-rule-field">
-                                    <label for="feeFineTargetDay">Target Date</label>
-                                    <input id="feeFineTargetDay" type="number" min="1" max="31" step="1" placeholder="Day 1-31">
+                                    <label for="feeFineTargetDay">Fine Starts After</label>
+                                    <input id="feeFineTargetDay" type="text" value="10th of each month" readonly>
                                 </div>
                             </div>
                             <div class="fine-rule-actions">
-                                <p class="fine-rule-status" id="feeFineStatus">Fine applies to unpaid monthly fee after the target date.</p>
+                                <p class="fine-rule-status" id="feeFineStatus">Daily fine starts after the 10th for unpaid monthly fees and stops at month end.</p>
                                 <button class="btn btn-primary" type="button" onclick="saveFeeFineRule()">Save</button>
                             </div>
                         </div>
@@ -1033,12 +1031,10 @@
         function readFeeFineRule() {
             try {
                 const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_FEE_FINE_RULE) || '{}');
-                const frequency = ['day', 'week', 'month'].includes(saved.frequency) ? saved.frequency : 'day';
                 const amount = Math.max(Number(saved.amount || 0), 0);
-                const targetDay = Math.min(Math.max(parseInt(saved.targetDay || 0, 10) || 0, 0), 31);
-                return { frequency, amount, targetDay };
+                return { frequency: 'day', amount, targetDay: 10 };
             } catch (_error) {
-                return { frequency: 'day', amount: 0, targetDay: 0 };
+                return { frequency: 'day', amount: 0, targetDay: 10 };
             }
         }
 
@@ -1054,10 +1050,10 @@
             const targetDay = document.getElementById('feeFineTargetDay');
             if (frequency) frequency.value = rule.frequency;
             if (amount) amount.value = rule.amount || '';
-            if (targetDay) targetDay.value = rule.targetDay || '';
-            writeFeeFineStatus(rule.amount && rule.targetDay
-                ? `Active: PKR ${rule.amount.toLocaleString('en-PK')} per ${rule.frequency}, after day ${rule.targetDay}.`
-                : 'Fine applies to unpaid monthly fee after the target date.');
+            if (targetDay) targetDay.value = '10th of each month';
+            writeFeeFineStatus(rule.amount
+                ? `Active: PKR ${rule.amount.toLocaleString('en-PK')} per day after the 10th, up to month end.`
+                : 'Set the daily fine amount. It starts after the 10th and stops at month end.');
         }
 
         function initFeeFineDropdown() {
@@ -1080,40 +1076,39 @@
         }
 
         function saveFeeFineRule() {
-            const frequency = String(document.getElementById('feeFineFrequency')?.value || 'day');
             const amount = Math.max(Number(document.getElementById('feeFineAmount')?.value || 0), 0);
-            const targetDay = parseInt(document.getElementById('feeFineTargetDay')?.value || 0, 10);
-            if (!amount || !targetDay || targetDay < 1 || targetDay > 31) {
-                writeFeeFineStatus('Enter amount and target date day from 1 to 31.');
+            if (!amount) {
+                writeFeeFineStatus('Enter a daily fine amount greater than zero.');
                 return;
             }
 
-            localStorage.setItem(STORAGE_KEY_FEE_FINE_RULE, JSON.stringify({ frequency, amount, targetDay }));
+            localStorage.setItem(STORAGE_KEY_FEE_FINE_RULE, JSON.stringify({ frequency: 'day', amount, targetDay: 10 }));
             hydrateFeeFineRuleFields();
             refreshVisibleFeeView();
             syncAutomaticFineCharges();
         }
 
-        function getMonthTargetDate(monthName, rule = readFeeFineRule()) {
+        function getMonthTargetDate(monthName, rule = readFeeFineRule(), referenceDate = new Date()) {
             const monthIndex = monthsList.indexOf(monthName);
             if (monthIndex < 0 || !rule.targetDay) return null;
-            const year = new Date().getFullYear();
+            const academicStartYear = referenceDate.getMonth() >= FEE_ACADEMIC_START_MONTH_INDEX
+                ? referenceDate.getFullYear()
+                : referenceDate.getFullYear() - 1;
+            const year = monthIndex >= FEE_ACADEMIC_START_MONTH_INDEX ? academicStartYear : academicStartYear + 1;
             const lastDay = new Date(year, monthIndex + 1, 0).getDate();
             return new Date(year, monthIndex, Math.min(rule.targetDay, lastDay));
         }
 
-        function getFeeFineLateUnits(monthName, rule = readFeeFineRule()) {
-            const dueDate = getMonthTargetDate(monthName, rule);
+        function getFeeFineLateUnits(monthName, rule = readFeeFineRule(), referenceDate = new Date()) {
+            const dueDate = getMonthTargetDate(monthName, rule, referenceDate);
             if (!dueDate || !rule.amount) return 0;
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
             dueDate.setHours(0, 0, 0, 0);
             if (today <= dueDate) return 0;
 
-            const lateDays = Math.ceil((today - dueDate) / 86400000);
-            if (rule.frequency === 'week') return Math.ceil(lateDays / 7);
-            if (rule.frequency === 'month') return Math.ceil(lateDays / 30);
-            return lateDays;
+            const monthEnd = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0);
+            const accruedThrough = today < monthEnd ? today : monthEnd;
+            return Math.max(Math.floor((accruedThrough - dueDate) / 86400000), 0);
         }
 
         function parseStudentFeeDate(value) {
@@ -1203,7 +1198,7 @@
 
         async function syncAutomaticFineCharges() {
             const rule = readFeeFineRule();
-            if (feeFineSyncInFlight || !rule.amount || !rule.targetDay) return;
+            if (feeFineSyncInFlight || !rule.amount) return;
             feeFineSyncInFlight = true;
             writeFeeFineStatus('Saving overdue fine charges...');
 
@@ -1231,6 +1226,8 @@
                                 classGrade: student.classGrade,
                                 session: student.session || '',
                                 feeMonth: month,
+                                feeYear: getMonthTargetDate(month, rule)?.getFullYear(),
+                                id: `FINE-${student.id}-${getAcademicFeeStartDate().getFullYear()}-${month}`,
                                 fineAmount
                             })
                         });
@@ -1245,7 +1242,7 @@
                     ? `Fine rule saved. ${failed} of ${attempted} overdue charge sync${failed === 1 ? '' : 's'} failed.`
                     : saved
                     ? `Active: ${saved} overdue fine charge${saved === 1 ? '' : 's'} synced.`
-                    : `Active: PKR ${rule.amount.toLocaleString('en-PK')} per ${rule.frequency}; no overdue unpaid fee found.`);
+                    : `Active: PKR ${rule.amount.toLocaleString('en-PK')} per day after the 10th through month end; no overdue unpaid fee found.`);
             } catch (error) {
                 writeFeeFineStatus(`Fine rule saved locally. Server sync failed: ${error.message}`);
             } finally {
@@ -1813,6 +1810,10 @@
             populateFeePrintClassFilter();
             renderFeesClassGrid();
             syncAutomaticFineCharges();
+            window.setInterval(() => {
+                refreshVisibleFeeView();
+                syncAutomaticFineCharges();
+            }, 60 * 60 * 1000);
             showDirectPayPrintScreen();
             window.addEventListener('hashchange', showDirectPayPrintScreen);
 
@@ -1884,7 +1885,8 @@
             { id: 'g7', name: 'Class Seven', icon: 'graduation-cap', keywords: ['7', 'seven', '7th', 'class 7', 'class seven', 'grade 7', 'grade 7th'] },
             { id: 'g8', name: 'Class Eight', icon: 'graduation-cap', keywords: ['8', 'eight', '8th', 'class 8', 'class eight', 'grade 8', 'grade 8th'] },
             { id: 'g9', name: 'Class Nine', icon: 'flask-conical', keywords: ['9', 'nine', '9th', 'class 9', 'class nine', 'grade 9', 'grade 9th'] },
-            { id: 'g10', name: 'Class 10', icon: 'flask-conical', keywords: ['10', 'ten', '10th', 'class 10', 'class ten', 'grade 10', 'grade 10th'] },
+            { id: 'g10', name: 'Class Ten', icon: 'flask-conical', keywords: ['10', 'ten', '10th', 'class 10', 'class ten', 'grade 10', 'grade 10th'] },
+            { id: 'graduate', name: 'Graduate', icon: 'graduation-cap', keywords: ['graduate', 'graduated', 'alumni'] },
         ];
 
         function getStudentCampusName(student) {

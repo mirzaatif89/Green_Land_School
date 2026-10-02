@@ -264,7 +264,7 @@
                                 <label>School Name<input type="text" id="schoolName" value="Green Land Model School Jand"></label>
                                 <label>Campus / Branch<input type="text" id="campusName" value="Campus: Moh Dara / Khana Malkani Road"></label>
                                 <label>Contact Line<input type="text" id="schoolContact" value="0322-222222 / 0341-123456"></label>
-                                <label>Term Title<input type="text" id="termTitle" value="3rd Term 2025-26"></label>
+                                <label>Exam Type<select id="termTitle"><option>First Term</option><option>Mid Term</option><option>Third Term</option><option>Final</option></select></label>
                                 <label>Left Logo URL<input type="text" id="leftLogoUrl" value="images/logo.jpeg" placeholder="images/logo.jpeg"></label>
                                 <label>Right Logo URL<input type="text" id="rightLogoUrl" value="images/logo.jpeg" placeholder="images/logo.jpeg"></label>
                             </div>
@@ -1430,7 +1430,7 @@
                 'dateSheetDefaultStart',
                 'dateSheetInstructions'
             ].forEach((id) => {
-                if (savedState[id]) document.getElementById(id).value = savedState[id];
+                if (savedState[id]) document.getElementById(id).value = id === 'termTitle' && typeof normalizeSchoolExamType === 'function' ? normalizeSchoolExamType(savedState[id]) : savedState[id];
             });
             applyExamBrandingDefaults(false);
         }

@@ -61,8 +61,23 @@ const DEFAULT_STUDENT_CLASS_ORDER = [
     'Class Five',
     'Class Six',
     'Class Seven',
-    'Class Eight'
+    'Class Eight',
+    'Class Nine',
+    'Class Ten',
+    'Graduate'
 ];
+const SCHOOL_EXAM_TYPES = Object.freeze(['First Term', 'Mid Term', 'Third Term', 'Final']);
+
+function normalizeSchoolExamType(value = '') {
+    const raw = String(value || '').trim();
+    if (!raw) return 'Mid Term';
+    const normalized = raw.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/^(first|1st)( term)?(\s+\d{4}(\s+\d{2})?)?$|^term 1(\s+\d{4}(\s+\d{2})?)?$/.test(normalized)) return 'First Term';
+    if (/^(mid ?term|midterm|half yearly)(\s+\d{4}(\s+\d{2})?)?$/.test(normalized)) return 'Mid Term';
+    if (/^(third|3rd)( term)?(\s+\d{4}(\s+\d{2})?)?$|^term 3(\s+\d{4}(\s+\d{2})?)?$/.test(normalized)) return 'Third Term';
+    if (/^(final|annual|supply)( exam(ination)?| term)?(\s+\d{4}(\s+\d{2})?)?$/.test(normalized)) return 'Final';
+    return raw;
+}
 let studentQuickFilterBranchCampuses = [];
 let studentColumnSearchFilter = null;
 let studentExamReportRecords = null;
@@ -1489,7 +1504,7 @@ function normalizeTeacherSchedule(schedule) {
 const DEFAULT_TEACHER_SCHEDULE_CLASSES = [
     'Play Group', 'Nursarry', 'Prep',
     'Class One', 'Class Two', 'Class Three', 'Class Four', 'Class Five',
-    'Class Six', 'Class Seven', 'Class Eight'
+    'Class Six', 'Class Seven', 'Class Eight', 'Class Nine', 'Class Ten', 'Graduate'
 ];
 
 function splitTeacherClassAndSection(classGrade = '', section = '') {
@@ -1618,50 +1633,6 @@ function getTeacherSectionsForClass(classGrade = '') {
     const targetClass = splitTeacherClassAndSection(classGrade).classGrade.toLowerCase();
     return getTeacherClassSectionCatalog()
         .find((item) => item.name.toLowerCase() === targetClass)?.sections || [];
-}
-
-function populateTeacherAssignedSectionOptions(selectedAssignedSections = '') {
-    const select = document.getElementById('tAssignedSections');
-    if (!select) return;
-
-    const selectedEntries = parseTeacherAssignedSections(selectedAssignedSections);
-    const options = new Map();
-    const addOption = (classGrade, section = '') => {
-        const normalized = splitTeacherClassAndSection(classGrade, section);
-        if (!normalized.classGrade) return;
-        const sectionName = normalized.section || 'General';
-        options.set(`${normalized.classGrade.toLowerCase()}||${sectionName.toLowerCase()}`, {
-            classGrade: normalized.classGrade,
-            section: sectionName
-        });
-    };
-
-    getTeacherClassSectionCatalog().forEach((item) => {
-        const sections = item.sections.length ? item.sections : ['General'];
-        sections.forEach((section) => addOption(item.name, section));
-    });
-    selectedEntries.forEach((item) => addOption(item.classGrade, item.section));
-
-    select.innerHTML = [...options.values()]
-        .sort((a, b) => {
-            const classCompare = typeof compareStudentClassNames === 'function'
-                ? compareStudentClassNames(a.classGrade, b.classGrade)
-                : a.classGrade.localeCompare(b.classGrade, undefined, { numeric: true, sensitivity: 'base' });
-            return classCompare || a.section.localeCompare(b.section, undefined, { numeric: true, sensitivity: 'base' });
-        })
-        .map((item) => `<option value="${escapeHtml(`${item.classGrade}||${item.section}`)}">${escapeHtml(formatTeacherClassSection(item.classGrade, item.section))}</option>`)
-        .join('');
-
-    const selectedKeys = new Set(selectedEntries.map((item) => `${item.classGrade.toLowerCase()}||${item.section.toLowerCase()}`));
-    Array.from(select.options).forEach((option) => {
-        option.selected = selectedKeys.has(String(option.value).toLowerCase());
-    });
-}
-
-function getSelectedTeacherAssignedSections() {
-    const select = document.getElementById('tAssignedSections');
-    if (!select) return [];
-    return parseTeacherAssignedSections(Array.from(select.selectedOptions).map((option) => option.value));
 }
 
 function populateTeacherScheduleClassOptions(selectedClass = '') {
@@ -6835,19 +6806,19 @@ async function openStudentPerformanceReportFromEncoded(encodedPayload, reportMod
 
     const yearInput=document.getElementById('examReportYear')?.value||'';
     const selectedYear=String(yearInput||'');
-    const selectedType=document.getElementById('examReportType')?.value||'Mid Term';
+    const selectedType=normalizeSchoolExamType(document.getElementById('examReportType')?.value||'Mid Term');
     const apiBase=typeof getApiBaseUrl==='function'?getApiBaseUrl():'/api';
     const normalizeReportName=value=>String(value||'').trim().toLowerCase().replace(/\s+/g,' ');
     let examResults=Array.isArray(studentExamReportRecords)?studentExamReportRecords.filter(record=>String(record.studentId||'')===String(student.id||'')||(normalizeReportName(record.studentName)&&normalizeReportName(record.studentName)===normalizeReportName(student.fullName))):[];
     if(!examResults.length){try{const response=await fetch(apiBase+'/student-results?studentId='+encodeURIComponent(student.id||''));const data=await response.json();if(response.ok&&data.success)examResults=Array.isArray(data.results)?data.results:[];}catch(_){}}
     let localMarks=[];try{localMarks=JSON.parse(localStorage.getItem('eduCore_student_skill_performance')||'[]').filter(record=>String(record.studentId)===String(student.id)||normalizeReportName(record.studentName)===normalizeReportName(student.fullName));}catch(_){}
-    const resultMarks=examResults.flatMap(result=>{const year=String(result.examYear||result.session||String(result.performanceDate||'').slice(0,4));const type=String(result.examType||result.examName||'Mid Term');const subjects=Array.isArray(result.subjects)&&result.subjects.length?result.subjects:(result.subject?[result]:[]);return subjects.filter(item=>item.subject&&item.obtainedMarks!=null&&item.obtainedMarks!=='').map(item=>({...result,...item,examYear:year,examType:type}));});
+    const resultMarks=examResults.flatMap(result=>{const year=String(result.examYear||result.session||String(result.performanceDate||'').slice(0,4));const type=normalizeSchoolExamType(result.examType||result.termTitle||result.examName||'Mid Term');const subjects=Array.isArray(result.subjects)&&result.subjects.length?result.subjects:(result.subject?[result]:[]);return subjects.filter(item=>item.subject&&item.obtainedMarks!=null&&item.obtainedMarks!=='').map(item=>({...result,...item,examYear:year,examType:type}));});
     const examRowsByKey=new Map();
     [...resultMarks,...localMarks].forEach(result=>{
         if(!result.subject||result.obtainedMarks==null||result.obtainedMarks==='')return;
         const year=String(result.examYear||result.session||String(result.performanceDate||'').slice(0,4));
-        const type=String(result.examType||result.examName||'Mid Term');
-        if((selectedYear&&year!==selectedYear)||type.trim().toLowerCase()!==selectedType.trim().toLowerCase())return;
+        const type=normalizeSchoolExamType(result.examType||result.termTitle||result.examName||'Mid Term');
+        if((selectedYear&&year!==selectedYear)||normalizeSchoolExamType(type)!==selectedType)return;
         const key=[result.studentId||student.id,normalizeReportName(result.subject),type.toLowerCase(),year].join('|');
         if(!examRowsByKey.has(key))examRowsByKey.set(key,{...result,examYear:year,examType:type});
     });
@@ -7075,8 +7046,9 @@ function getStudentQuickFilterClassLabel(className) {
         'grade 6th': 'Class Six', 'grade 6': 'Class Six', 'class 6': 'Class Six',
         'grade 7th': 'Class Seven', 'grade 7': 'Class Seven', 'class 7': 'Class Seven',
         'grade 8th': 'Class Eight', 'grade 8': 'Class Eight', 'class 8': 'Class Eight',
-        'grade 9th': 'Class Nine', 'grade 9': 'Class Nine', 'class 9': 'Class Nine',
-        'grade 10th': 'Class 10', 'grade 10': 'Class 10', 'class ten': 'Class 10'
+        'grade 9th': 'Class Nine', 'grade 9': 'Class Nine', 'class 9': 'Class Nine', 'class nine': 'Class Nine',
+        'grade 10th': 'Class Ten', 'grade 10': 'Class Ten', 'class 10': 'Class Ten', 'class ten': 'Class Ten',
+        'graduate': 'Graduate', 'graduated': 'Graduate', 'alumni': 'Graduate'
     };
     if (classAliases[normalized]) return classAliases[normalized];
     return className;
@@ -7352,7 +7324,7 @@ async function loadStudentExamReportRecords() {
         try { savedMarks = JSON.parse(localStorage.getItem('eduCore_student_skill_performance') || '[]'); } catch (_) {}
         const resultMarks = (Array.isArray(data.results) ? data.results : []).flatMap(result => {
             const year = String(result.examYear || result.session || String(result.performanceDate || '').slice(0, 4));
-            const type = String(result.examType || result.examName || 'Mid Term');
+            const type = normalizeSchoolExamType(result.examType || result.termTitle || result.examName || 'Mid Term');
             const subjects = Array.isArray(result.subjects) && result.subjects.length
                 ? result.subjects
                 : (result.subject ? [result] : []);
@@ -7452,14 +7424,14 @@ function renderStudents(term) {
 
     if (window.location.hash === '#status' && Array.isArray(studentExamReportRecords)) {
         const selectedYear = String(document.getElementById('examReportYear')?.value || '');
-        const selectedType = String(document.getElementById('examReportType')?.value || 'Mid Term').toLowerCase();
+        const selectedType = normalizeSchoolExamType(document.getElementById('examReportType')?.value || 'Mid Term');
         const matchingRecords = studentExamReportRecords
             .filter(record => {
                 if (!record.studentId || !record.subject || record.obtainedMarks == null || record.obtainedMarks === '') return false;
                 const recordYear = String(record.examYear || record.session || String(record.performanceDate || '').slice(0, 4));
-                const recordType = String(record.examType || record.examName || '').trim().toLowerCase();
+                const recordType = normalizeSchoolExamType(record.examType || record.examName || 'Mid Term');
                 return (!selectedYear || recordYear === selectedYear) &&
-                    recordType === selectedType.trim().toLowerCase();
+                    recordType === selectedType;
             });
         const normalizeStudentName = value => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
         filtered = filtered.filter(student => matchingRecords.some(record =>
@@ -8491,7 +8463,6 @@ function toggleTeacherForm(editMode = false) {
             document.getElementById('teacherId').value = '';
             const teacherCodeField = document.getElementById('teacherCode');
             if (teacherCodeField) teacherCodeField.value = generateEntityCode(STORAGE_KEY_TEACHERS, 'TCH');
-            populateTeacherAssignedSectionOptions();
             title.innerText = 'Add New Teacher';
         } else {
             title.innerText = 'Edit Teacher Details';
@@ -8683,7 +8654,6 @@ async function handleTeacherFormSubmit(e) {
         designation: document.getElementById('tDesignation')?.value || 'Teacher',
         groupKey: getDesignationGroup('tDesignation', 'teacher'),
         subject: document.getElementById('tSubject').value,
-        assignedSections: JSON.stringify(getSelectedTeacherAssignedSections()),
         fingerprintData: document.getElementById('tFingerprintData') ? document.getElementById('tFingerprintData').value.trim() : (existingTeacher?.fingerprintData || ''),
         salary: salaryValInput,
         username: usernameInput,
@@ -9011,7 +8981,6 @@ function editTeacher(t) {
     document.getElementById('tGender').value = t.gender || '';
     setDesignationSelectValue('tDesignation', normalizedTeacherDesignation.designation, normalizedTeacherDesignation.groupKey);
     document.getElementById('tSubject').value = t.subject;
-    populateTeacherAssignedSectionOptions(t.assignedSections);
     if (document.getElementById('tFingerprintData')) document.getElementById('tFingerprintData').value = t.fingerprintData || '';
     document.getElementById('tSalary').value = t.salary || '0';
     if (document.getElementById('tBankName')) document.getElementById('tBankName').value = t.bankName || '';

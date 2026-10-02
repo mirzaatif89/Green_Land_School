@@ -3393,27 +3393,167 @@ registerMobileCollectionRoutes({
     socketEvent: 'ads_update'
 });
 
-registerMobileCollectionRoutes({
-    route: 'online-admissions',
-    storeName: 'online_admissions',
-    recordsKey: 'applications',
-    itemKey: 'application',
-    prefix: 'ADM',
-    socketEvent: 'online_admissions_update'
+function cleanAdmissionValue(value, maxLength = 500) {
+    return String(value ?? '').replace(/[<>]/g, '').trim().slice(0, maxLength);
+}
+
+function normalizeAdmissionIdentifier(value) {
+    return String(value ?? '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+}
+
+app.get('/api/online-admissions', authenticateToken, async (req, res) => {
+    if (!(await enforceActionPermission(req, res, 'online_admissions', 'view'))) return;
+    return res.json({ success: true, applications: readMobileStore('online_admissions') });
 });
 
-app.post('/api/online-admissions/:id', (req, res) => {
+app.post('/api/online-admissions', async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    if (cleanAdmissionValue(body.website, 200)) return res.status(201).json({ success: true, application: { id: 'received' } });
+    const application = {
+        id: `ADM-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        studentName: cleanAdmissionValue(body.studentName, 100),
+        fatherName: cleanAdmissionValue(body.fatherName, 100),
+        dateOfBirth: cleanAdmissionValue(body.dateOfBirth, 20),
+        gender: cleanAdmissionValue(body.gender, 20),
+        className: cleanAdmissionValue(body.className, 50),
+        campus: cleanAdmissionValue(body.campus, 80),
+        parentName: cleanAdmissionValue(body.parentName, 100),
+        relationship: cleanAdmissionValue(body.relationship, 30),
+        phone: cleanAdmissionValue(body.phone, 30),
+        alternatePhone: cleanAdmissionValue(body.alternatePhone, 30),
+        email: cleanAdmissionValue(body.email, 191).toLowerCase(),
+        address: cleanAdmissionValue(body.address, 500),
+        previousSchool: cleanAdmissionValue(body.previousSchool, 150),
+        previousClass: cleanAdmissionValue(body.previousClass, 60),
+        formB: cleanAdmissionValue(body.formB, 50),
+        cnic: cleanAdmissionValue(body.cnic, 30),
+        message: cleanAdmissionValue(body.message, 1000),
+        status: 'New',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    if (!application.studentName || !application.fatherName || !application.dateOfBirth || !application.gender || !application.className || !application.parentName || !application.relationship || !application.phone || !application.address) {
+        return res.status(400).json({ success: false, message: 'Please complete all required student, father, parent, contact, class and address fields.' });
+    }
+    if (application.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(application.email)) {
+        return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+    const formB = normalizeAdmissionIdentifier(application.formB);
+    const cnic = normalizeAdmissionIdentifier(application.cnic);
+    if (formB || cnic) {
+        if (!sequelize) return res.status(503).json({ success: false, message: 'Admissions are temporarily unavailable. Please try again shortly.' });
+        const existingApplications = readMobileStore('online_admissions');
+        const applicationMatch = existingApplications.some((item) =>
+            (formB && normalizeAdmissionIdentifier(item.formB) === formB) ||
+            (cnic && normalizeAdmissionIdentifier(item.cnic) === cnic)
+        );
+        let students;
+        try {
+            students = await sequelize.models.Student.findAll({ attributes: ['formB', 'cnic'] });
+        } catch (error) {
+            console.error('Admission duplicate check failed:', error.message);
+            return res.status(503).json({ success: false, message: 'Admissions are temporarily unavailable. Please try again shortly.' });
+        }
+        const studentMatch = students.some((item) =>
+            (formB && normalizeAdmissionIdentifier(item.formB) === formB) ||
+            (cnic && normalizeAdmissionIdentifier(item.cnic) === cnic)
+        );
+        if (applicationMatch || studentMatch) {
+            return res.status(409).json({
+                success: false,
+                code: 'ALREADY_APPLIED',
+                message: 'An application with this B-Form or CNIC has already been submitted. Please contact the school if you need help.'
+            });
+        }
+    }
+    writeMobileStore('online_admissions', [application, ...readMobileStore('online_admissions')]);
+    return res.status(201).json({ success: true, application: { id: application.id, status: application.status } });
+});
+
+app.post('/api/online-admissions/:id/approve', authenticateToken, async (req, res) => {
+    if (!(await enforceActionPermission(req, res, 'online_admissions', 'edit'))) return;
+    if (!(await enforceActionPermission(req, res, 'students', 'add'))) return;
+    if (!sequelize) return res.status(503).json({ success: false, message: 'Student database is unavailable.' });
     const records = readMobileStore('online_admissions');
     const index = records.findIndex((item) => String(item.id) === String(req.params.id));
     if (index < 0) return res.status(404).json({ success: false, message: 'Application not found.' });
-    records[index] = {
-        ...records[index],
-        ...req.body,
-        updatedAt: new Date().toISOString()
-    };
+    const application = records[index];
+    const Student = sequelize.models.Student;
+    let student = application.studentId ? await Student.findByPk(application.studentId) : null;
+    let createdNewStudent = false;
+    if (!student) {
+        const stamp = Date.now().toString(36).toUpperCase();
+        const studentId = `STU-ONL-${stamp}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+        const classFees = await sequelize.models.ClassFee.findAll();
+        const classFee = classFees.find((item) => String(item.className || '').trim().toLowerCase() === String(application.className || '').trim().toLowerCase());
+        const emailAlreadyUsed = application.email ? await Student.findOne({ where: { email: application.email } }) : null;
+        const today = new Date().toISOString().slice(0, 10);
+        try {
+            student = await Student.create({
+                id: studentId,
+                studentCode: `ONL-${stamp}`,
+                fullName: application.studentName,
+                fatherName: application.fatherName,
+                dob: application.dateOfBirth,
+                admissionDate: today,
+                classGrade: application.className,
+                section: 'General',
+                campusName: application.campus || req.user.campusName || 'Main Campus',
+                gender: application.gender,
+                parentPhone: application.phone,
+                guardianName: application.parentName,
+                guardianContact: application.phone,
+                email: emailAlreadyUsed ? null : (application.email || null),
+                address: application.address,
+                formB: application.formB || '',
+                cnic: application.cnic || '',
+                monthlyFee: classFee?.monthlyFee ? String(classFee.monthlyFee) : '',
+                monthlyFeeCustom: false,
+                freeStudy: false,
+                remainingAmount: '0',
+                feeFrequency: classFee?.feeFrequency || 'Monthly',
+                feesStatus: 'Pending',
+                enrollmentStatus: 'Active',
+                role: 'Student'
+            });
+            createdNewStudent = true;
+        } catch (error) {
+            return res.status(409).json({ success: false, message: error.message || 'Student record could not be created.' });
+        }
+        application.studentId = student.id;
+        application.studentCode = student.studentCode;
+    }
+    application.status = 'Approved';
+    application.updatedAt = new Date().toISOString();
+    records[index] = application;
+    let applications;
+    try {
+        applications = writeMobileStore('online_admissions', records);
+    } catch (error) {
+        if (createdNewStudent && student) await Student.destroy({ where: { id: student.id } }).catch(() => {});
+        return res.status(500).json({ success: false, message: 'Student was created but the application could not be updated. Contact the administrator.' });
+    }
+    const students = await Student.findAll();
+    io.emit('students_update', students);
+    return res.json({ success: true, application, student: { id: student.id, studentCode: student.studentCode }, applications });
+});
+
+app.post('/api/online-admissions/:id', authenticateToken, async (req, res) => {
+    if (!(await enforceActionPermission(req, res, 'online_admissions', 'edit'))) return;
+    const records = readMobileStore('online_admissions');
+    const index = records.findIndex((item) => String(item.id) === String(req.params.id));
+    if (index < 0) return res.status(404).json({ success: false, message: 'Application not found.' });
+    const status = String(req.body?.status || '').trim();
+    if (!['New', 'Contacted', 'Closed', 'Rejected', 'Approved'].includes(status)) return res.status(400).json({ success: false, message: 'Invalid application status.' });
+    records[index] = { ...records[index], status, updatedAt: new Date().toISOString() };
     const applications = writeMobileStore('online_admissions', records);
-    io.emit('online_admissions_update', applications);
-    res.json({ success: true, application: records[index], applications });
+    return res.json({ success: true, application: records[index], applications });
+});
+
+app.delete('/api/online-admissions/:id', authenticateToken, async (req, res) => {
+    if (!(await enforceActionPermission(req, res, 'online_admissions', 'delete'))) return;
+    const applications = deleteMobileRecord('online_admissions', req.params.id);
+    return res.json({ success: true, deleted: true, applications });
 });
 
 registerMobileCollectionRoutes({ route: 'library/issues', storeName: 'library_issues', recordsKey: 'issues', itemKey: 'issue', prefix: 'LIB' });
@@ -3947,6 +4087,7 @@ function defineStudentModel(db) {
         email: { type: DataTypes.STRING(191), unique: true, allowNull: true },
         rollNo: DataTypes.STRING(30),
         formB: DataTypes.STRING(50),
+        cnic: DataTypes.STRING(30),
         monthlyFee: DataTypes.STRING(20),
         monthlyFeeCustom: DataTypes.BOOLEAN,
         freeStudy: DataTypes.BOOLEAN,
@@ -4478,6 +4619,7 @@ async function ensureLegacySchema() {
         email: { type: DataTypes.STRING, allowNull: true },
         rollNo: { type: DataTypes.STRING, allowNull: true },
         formB: { type: DataTypes.STRING, allowNull: true },
+        cnic: { type: DataTypes.STRING, allowNull: true },
         monthlyFee: { type: DataTypes.STRING, allowNull: true },
         monthlyFeeCustom: { type: DataTypes.BOOLEAN, allowNull: true },
         freeStudy: { type: DataTypes.BOOLEAN, allowNull: true },

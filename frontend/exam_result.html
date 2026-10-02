@@ -15,7 +15,9 @@
 <body>
     <div class="dashboard-container">
         <aside class="sidebar">
-            <div class="logo-section" aria-label="Green Land Model School Jand"></div>
+            <div class="logo-section" aria-label="Green Land Model School Jand">
+                <img class="sidebar-logo-img" src="images/logo.jpeg" alt="Green Land Model School Jand logo">
+            </div>
 
             <nav class="nav-links">
                 <a href="dashboard.html" class="nav-item">
@@ -258,7 +260,7 @@
                                 <label>School Name<input type="text" id="schoolName" value="Green Land Model School Jand" placeholder="Enter school name"></label>
                                 <label>Campus / Branch<select id="campusName"></select></label>
                                 <label>Contact Line<input type="text" id="schoolContact" placeholder="Enter contact line"></label>
-                                <label>Term Title<input type="text" id="termTitle" placeholder="Enter term title"></label>
+                                <label>Exam Type<select id="termTitle"><option>First Term</option><option>Mid Term</option><option>Third Term</option><option>Final</option></select></label>
                                 <input type="hidden" id="leftLogoUrl">
                                 <div class="static-logo-note">
                                     <i data-lucide="shield-check" size="18"></i>
@@ -482,9 +484,9 @@
                         </div>
                         <div class="result-schedule-fields">
                             <label>Campus<select id="resultScheduleCampus"><option value="">Select campus</option><option value="Main Campus">Main Campus</option></select></label>
-                            <label>Class<select id="resultScheduleClass"><option value="">Select class</option><option>Play Group</option><option>Nursery</option><option>Prep</option><option>Class 1</option><option>Class 2</option><option>Class 3</option><option>Class 4</option><option>Class 5</option><option>Class 6</option><option>Class 7</option><option>Class 8</option></select></label>
+                            <label>Class<select id="resultScheduleClass"><option value="">Select class</option><option>Play Group</option><option>Nursery</option><option>Prep</option><option>Class 1</option><option>Class 2</option><option>Class 3</option><option>Class 4</option><option>Class 5</option><option>Class 6</option><option>Class 7</option><option>Class 8</option><option>Class 9</option><option>Class 10</option><option>Graduate</option></select></label>
                             <label>Result Year<select id="resultScheduleYear"><option>2026</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2021</option><option>2020</option><option>2019</option><option>2018</option><option>2017</option><option>2016</option></select></label>
-                            <label>Result Type<select id="resultScheduleType"><option>Mid Term</option><option>Annual</option><option>Supply</option></select></label>
+                            <label>Result Type<select id="resultScheduleType"><option>First Term</option><option>Mid Term</option><option>Third Term</option><option>Final</option></select></label>
                             <label>Show On Portal From<input type="date" id="resultPublishDate"></label>
                             <label>Show Time<input type="time" id="resultPublishTime" value="08:00"></label>
                             <button type="button" class="btn btn-primary" id="saveResultScheduleBtn">
@@ -2094,7 +2096,7 @@
                 schoolName: document.getElementById('schoolName').value.trim(),
                 campusName: document.getElementById('campusName').value.trim(),
                 schoolContact: document.getElementById('schoolContact').value.trim(),
-                termTitle: document.getElementById('termTitle').value.trim(),
+                termTitle: normalizeSchoolExamType(document.getElementById('termTitle').value),
                 leftLogoUrl: STATIC_RESULT_LOGO,
                 subjects: readSubjectRows(),
                 behaviors: readBehaviorRows(),
@@ -2308,7 +2310,7 @@
                     <td>${escapeHtml(item.publishDate || '-')}</td>
                     <td>${escapeHtml(item.classGrade || '-')}</td>
                     <td>${escapeHtml(item.publishTime || '-')}</td>
-                    <td>${escapeHtml(item.examType || '-')}</td>
+                    <td>${escapeHtml(normalizeSchoolExamType(item.examType || '-'))}</td>
                     <td><div class="result-history-actions">
                         <button type="button" class="btn btn-outline result-schedule-edit" data-schedule-id="${escapeHtml(item.id || '')}">Edit</button>
                         <button type="button" class="btn btn-outline result-schedule-delete" data-schedule-id="${escapeHtml(item.id || '')}">Delete</button>
@@ -2393,7 +2395,7 @@
                         <td>${item.rollNo || item.studentRollNo || '-'}</td>
                         <td>${item.campusName || '-'}</td>
                         <td>${item.studentGrade || '-'}</td>
-                        <td>${item.termTitle || '-'}</td>
+                        <td>${escapeHtml(normalizeSchoolExamType(item.termTitle || item.examType || '-'))}</td>
                         <td>${summary.totalMarks}</td>
                         <td>${summary.obtainedMarks}</td>
                         <td>${summary.percentage}</td>
@@ -2454,7 +2456,7 @@
                 'studentLookupId', 'studentRollNo', 'studentName', 'fatherName', 'studentGrade', 'positionGrade',
                 'teacherRemarks', 'teacherSignature', 'principalSignature', 'parentSignature'
             ].forEach((id) => {
-                const value = id === 'studentRollNo' ? (savedState[id] || savedState.rollNo) : savedState[id];
+                const value = id === 'studentRollNo' ? (savedState[id] || savedState.rollNo) : id === 'termTitle' ? normalizeSchoolExamType(savedState[id] || savedState.examType || 'Mid Term') : savedState[id];
                 if (value) document.getElementById(id).value = value;
             });
         }
@@ -2555,7 +2557,7 @@
             const classes = getUniqueValues([
                 ...savedClasses,
                 ...students.map(getStudentClass),
-                'Play Group', 'Nursery', 'Prep', ...Array.from({ length: 8 }, (_, index) => `Class ${index + 1}`)
+                'Play Group', 'Nursery', 'Prep', ...Array.from({ length: 10 }, (_, index) => `Class ${index + 1}`), 'Graduate'
             ]);
             campuses = getUniqueValues(['Main Campus', ...campuses, ...students.map(getStudentCampus)]);
             RESULT_SCHEDULER_CLASS_OPTIONS = classes;
@@ -2817,7 +2819,7 @@
                     campusSelect.value = schedule.campusName || '';
                     classSelect.value = schedule.classGrade || '';
                     yearSelect.value = String(schedule.examYear || '');
-                    document.getElementById('resultScheduleType').value = schedule.examType || 'Mid Term';
+                    document.getElementById('resultScheduleType').value = normalizeSchoolExamType(schedule.examType || 'Mid Term');
                     document.getElementById('resultPublishDate').value = schedule.publishDate || '';
                     document.getElementById('resultPublishTime').value = schedule.publishTime || '08:00';
                     document.getElementById('resultSchedulerPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });

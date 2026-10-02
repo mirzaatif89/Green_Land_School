@@ -5123,7 +5123,7 @@
                 const studentLookupId = String(record.studentLookupId || record.studentId || record.studentCode || '');
                 const studentGrade = String(record.studentGrade || record.classGrade || record.className || '');
                 const examYear = String(record.examYear || record.session || String(record.performanceDate || record.createdAt || '').slice(0, 4));
-                const termTitle = String(record.termTitle || record.examType || record.examName || 'Mid Term');
+                const termTitle = normalizeStudentResultExamType(record.termTitle || record.examType || record.examName || 'Mid Term');
                 const groupId = `EXAM-${studentLookupId}-${normalizeResultClass(studentGrade)}-${normalizeLoose(termTitle)}-${examYear}`;
                 const group = groups.get(groupId) || {
                     id: groupId,
@@ -5227,6 +5227,16 @@
             return String(value || '').trim().toLowerCase();
         }
 
+        function normalizeStudentResultExamType(value) {
+            const raw = String(value || '').trim();
+            const normalized = normalizeLoose(raw).replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+            if (/^(first|1st)( term)?(\s+\d{4}(\s+\d{2})?)?$|^term 1(\s+\d{4}(\s+\d{2})?)?$/.test(normalized)) return 'First Term';
+            if (/^(mid ?term|midterm|half yearly)(\s+\d{4}(\s+\d{2})?)?$/.test(normalized)) return 'Mid Term';
+            if (/^(third|3rd)( term)?(\s+\d{4}(\s+\d{2})?)?$|^term 3(\s+\d{4}(\s+\d{2})?)?$/.test(normalized)) return 'Third Term';
+            if (/^(final|annual|supply)( exam(ination)?| term)?(\s+\d{4}(\s+\d{2})?)?$/.test(normalized)) return 'Final';
+            return raw || 'Mid Term';
+        }
+
         function normalizeResultClass(value) {
             return normalizeLoose(value).replace(/\bclass\b/g, '').replace(/[^a-z0-9]/g, '');
         }
@@ -5259,12 +5269,12 @@
         function isResultPublishedForStudent(record = {}, student = {}) {
             const recordCampus = normalizeLoose(getResultRecordCampus(record, student));
             const recordClass = normalizeResultClass(getResultRecordClass(record, student));
-            const recordType = normalizeLoose(record.termTitle || record.examType || record.examName);
+            const recordType = normalizeStudentResultExamType(record.termTitle || record.examType || record.examName);
             const recordYear = String(record.examYear || record.session || '');
             const now = new Date();
             return loadResultPublishSchedules().some((item) => {
                 if (normalizeLoose(item.campusName) !== recordCampus || normalizeResultClass(item.classGrade) !== recordClass) return false;
-                if (item.examType && normalizeLoose(item.examType) !== 'all' && normalizeLoose(item.examType) !== recordType) return false;
+                if (item.examType && normalizeLoose(item.examType) !== 'all' && normalizeStudentResultExamType(item.examType) !== recordType) return false;
                 if (item.examYear && String(item.examYear) !== recordYear) return false;
                 if (!item.publishDate) return false;
                 const releaseAt = new Date(`${item.publishDate}T${item.publishTime || '00:00'}:00`);
@@ -5299,7 +5309,7 @@
             const dateFilter = String(filters.date || '').trim();
             const classFilter = normalizeLoose(filters.classGrade);
             const yearFilter = String(filters.year || '').trim();
-            const examFilter = normalizeLoose(filters.examType);
+            const examFilter = filters.examType ? normalizeStudentResultExamType(filters.examType) : '';
 
             return archive.filter((record) => {
                 const recordLookup = normalizeLoose(record.studentLookupId);
@@ -5312,7 +5322,7 @@
                 if (dateFilter && getResultRecordDate(record) !== dateFilter) return false;
                 if (classFilter && normalizeResultClass(getResultRecordClass(record, student)) !== normalizeResultClass(classFilter)) return false;
                 if (yearFilter && String(record.examYear || record.session || String(getResultRecordDate(record)).slice(0, 4)) !== yearFilter) return false;
-                if (examFilter && normalizeLoose(record.termTitle || record.examType || record.examName) !== examFilter) return false;
+                if (examFilter && normalizeStudentResultExamType(record.termTitle || record.examType || record.examName) !== examFilter) return false;
 
                 return true;
             }).sort((a, b) => new Date(b.updatedAt || b.resultDate || 0) - new Date(a.updatedAt || a.resultDate || 0));
@@ -5349,7 +5359,7 @@
             }
             const records = getFilteredStudentResults(student);
             const years = [...new Set(records.map(record => String(record.examYear || record.session || String(getResultRecordDate(record)).slice(0, 4))).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-            const examTypes = ['Mid Term', 'Annual', 'Supply'];
+            const examTypes = ['First Term', 'Mid Term', 'Third Term', 'Final'];
             if (yearSelect) {
                 yearSelect.innerHTML = years.length ? years.map(year => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('') : `<option value="${new Date().getFullYear()}">${new Date().getFullYear()}</option>`;
                 yearSelect.value = years.includes(String(new Date().getFullYear())) ? String(new Date().getFullYear()) : (years[0] || String(new Date().getFullYear()));
@@ -5386,7 +5396,7 @@
                     <tr>
                         <td>${escapeHtml(formatResultRecordDate(record))}</td>
                         <td>${escapeHtml(getResultRecordClass(record, student) || '-')}</td>
-                        <td>${escapeHtml(record.termTitle || '-')}</td>
+                        <td>${escapeHtml(normalizeStudentResultExamType(record.termTitle || record.examType || '-'))}</td>
                         <td>${escapeHtml(`${formatMark(percentage)}%`)}</td>
                         <td>
                             <button type="button" class="btn-inline student-result-view-btn" data-result-index="${index}">
@@ -5431,7 +5441,7 @@
             setReportText('studentResultReportFather', student.fatherName || result.fatherName || '-');
             setReportText('studentResultReportClass', student.classGrade || result.studentGrade || '-');
             setReportText('studentResultReportSection', student.section || result.section || '-');
-            setReportText('studentResultReportExam', `${reportYear || '-'} / ${result.termTitle || result.examType || result.examName || 'Exam'}`);
+            setReportText('studentResultReportExam', `${reportYear || '-'} / ${normalizeStudentResultExamType(result.termTitle || result.examType || result.examName || 'Exam')}`);
             setReportText('studentResultSubjectCount', `${result.subjects.length} subjects recorded`);
             const logo = document.getElementById('studentResultReportLogo');
             if (logo) logo.src = getPortalBrandingLogoSrc();
@@ -5575,7 +5585,7 @@
                 ['Father Name', student.fatherName || cachedResult.fatherName || '-'],
                 ['Class / Section', `${student.classGrade || cachedResult.studentGrade || '-'} / ${student.section || cachedResult.section || '-'}`],
                 ['School Year', cachedResult.examYear || cachedResult.session || '-'],
-                ['Exam Type', cachedResult.termTitle || cachedResult.examType || '-']
+                ['Exam Type', normalizeStudentResultExamType(cachedResult.termTitle || cachedResult.examType || '-')]
             ];
             let metaY = 50;
             meta.forEach(([label, value], index) => {
@@ -5757,7 +5767,7 @@
                                 <div><b>Father Name</b>${escapeHtml(student.fatherName || cachedResult.fatherName || '-')}</div>
                                 <div><b>Class</b>${escapeHtml(student.classGrade || cachedResult.studentGrade || '-')}</div>
                                 <div><b>Section</b>${escapeHtml(student.section || cachedResult.section || '-')}</div>
-                                <div><b>School Year / Exam</b>${escapeHtml(cachedResult.examYear || cachedResult.session || '-')} / ${escapeHtml(cachedResult.termTitle || cachedResult.examType || cachedResult.examName || '-')}</div>
+                                <div><b>School Year / Exam</b>${escapeHtml(cachedResult.examYear || cachedResult.session || '-')} / ${escapeHtml(normalizeStudentResultExamType(cachedResult.termTitle || cachedResult.examType || cachedResult.examName || '-'))}</div>
                             </div>
                             <div class="section-title">Subject Results <span>${cachedResult.subjects.length} subjects recorded</span></div>
                             <table>
@@ -5864,7 +5874,7 @@
             setText('performanceAttendance', attendanceText);
             setText('performanceResult', latestResult ? `${formatMark(percentage)}%` : '-');
             setText('performanceStatus', status);
-            setText('performanceTerm', latestResult?.termTitle || '-');
+            setText('performanceTerm', latestResult ? normalizeStudentResultExamType(latestResult.termTitle || latestResult.examType || '-') : '-');
             renderStudentSkillPerformance(student);
         }
 

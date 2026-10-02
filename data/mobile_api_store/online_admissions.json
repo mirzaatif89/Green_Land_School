@@ -1,1 +1,27 @@
-[]
+[
+  {
+    "studentName": "Atif Mehmood",
+    "fatherName": "Asif Mehmood",
+    "dateOfBirth": "2004-03-23",
+    "gender": "Male",
+    "className": "Nursery",
+    "campus": "main",
+    "previousSchool": "Al-Farabi Model high school",
+    "previousClass": "Prep",
+    "formB": "3410419732295",
+    "cnic": "",
+    "parentName": "Shaista Ruby",
+    "relationship": "Mother",
+    "phone": "03106954308",
+    "alternatePhone": "03172174320",
+    "email": "mirzaatif7809@gmail.com",
+    "address": "jfhdsfhdshf",
+    "message": "",
+    "id": "ADM-1790396198444-92ds9o",
+    "createdAt": "2026-09-26T04:16:38.444Z",
+    "updatedAt": "2026-09-26T04:34:01.151Z",
+    "studentId": "STU-ONL-MUHWABCY-CUWK",
+    "studentCode": "ONL-MUHWABCY",
+    "status": "Rejected"
+  }
+]

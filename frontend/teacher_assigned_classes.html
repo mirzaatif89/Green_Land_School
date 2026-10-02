@@ -113,7 +113,9 @@
                         </div>
                         <div>
                             <label for="classAssignmentCampus">Campus</label>
-                            <input type="text" id="classAssignmentCampus" placeholder="Main Campus">
+                            <select id="classAssignmentCampus" required>
+                                <option value="">Loading campuses...</option>
+                            </select>
                         </div>
                         <div>
                             <label for="classAssignmentNote">Note</label>
@@ -132,13 +134,14 @@
     </div>
 
     <script src="auth.js?v=20260814-live-auth-fix1"></script>
-    <script src="script.js?v=20260814-local-runtime-fix6"></script>
+    <script src="script.js?v=20260926-assignment-campus-dropdown"></script>
     <script>
         const CLASS_ASSIGNMENT_KEY = 'eduCore_teacher_class_assignments';
+        const classAssignmentCampusSelect = document.getElementById('classAssignmentCampus');
         const DEFAULT_ASSIGNMENT_CLASSES = [
             'Play Group', 'Nursarry', 'Prep',
             'Class One', 'Class Two', 'Class Three', 'Class Four', 'Class Five',
-            'Class Six', 'Class Seven', 'Class Eight'
+            'Class Six', 'Class Seven', 'Class Eight', 'Class Nine', 'Class Ten', 'Graduate'
         ];
 
         function assignmentData(key) {
@@ -152,6 +155,23 @@
 
         function saveAssignments(assignments) {
             localStorage.setItem(CLASS_ASSIGNMENT_KEY, JSON.stringify(assignments));
+        }
+
+        async function populateClassAssignmentCampuses(selectedCampus = '') {
+            const registered = typeof loadRegisteredCampusNames === 'function'
+                ? await loadRegisteredCampusNames()
+                : ['Main Campus'];
+            const campuses = [...new Map(registered.map((name) => {
+                const value = String(name || '').trim();
+                return [value.toLowerCase(), value];
+            }).filter(([key, value]) => key && value)).values()];
+            const selected = String(selectedCampus || classAssignmentCampusSelect.value || '').trim();
+            classAssignmentCampusSelect.innerHTML = '<option value="">Select Campus</option>' + campuses
+                .map((campus) => `<option value="${escapeAssignmentText(campus)}">${escapeAssignmentText(campus)}</option>`).join('');
+            if (selected && !campuses.some((campus) => campus.toLowerCase() === selected.toLowerCase())) {
+                classAssignmentCampusSelect.insertAdjacentHTML('beforeend', `<option value="${escapeAssignmentText(selected)}">${escapeAssignmentText(selected)}</option>`);
+            }
+            classAssignmentCampusSelect.value = selected;
         }
 
         function escapeAssignmentText(value) {
@@ -296,7 +316,7 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
-        function editClassAssignment(id) {
+        async function editClassAssignment(id) {
             const assignment = assignmentData(CLASS_ASSIGNMENT_KEY).find((item) => String(item.id) === String(id));
             if (!assignment) return;
             const normalized = splitAssignmentClassSection(assignment.classGrade, assignment.section);
@@ -304,7 +324,7 @@
             classAssignmentTeacher.value = assignment.teacherId || '';
             populateClassAssignmentOptions(normalized.classGrade, normalized.section);
             classAssignmentTeacher.value = assignment.teacherId || '';
-            classAssignmentCampus.value = assignment.campusName || '';
+            await populateClassAssignmentCampuses(assignment.campusName || assignmentData('eduCore_teachers').find((teacher) => String(teacher.id) === String(assignment.teacherId))?.campusName || '');
             classAssignmentNote.value = assignment.note || '';
             saveClassAssignmentBtn.innerHTML = '<i data-lucide="save"></i> Update Assignment';
             classAssignmentForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -322,8 +342,8 @@
             const teacher = teachers.find((item) => String(item.id) === String(classAssignmentTeacher.value));
             const classGrade = classAssignmentClass.value;
             const section = classAssignmentSection.value;
-            if (!teacher || !classGrade || !section) {
-                showAppAlert('Select a teacher, class, and section first.', 'Missing Assignment');
+            if (!teacher || !classGrade || !section || !classAssignmentCampusSelect.value) {
+                showAppAlert('Select a teacher, class, section, and campus first.', 'Missing Assignment');
                 return;
             }
 
@@ -335,7 +355,7 @@
                 teacherName: teacher.fullName || 'Teacher',
                 classGrade,
                 section,
-                campusName: classAssignmentCampus.value.trim() || teacher.campusName || 'Main Campus',
+                campusName: classAssignmentCampusSelect.value,
                 note: classAssignmentNote.value.trim(),
                 updatedAt: new Date().toISOString()
             };
@@ -359,7 +379,12 @@
         });
 
         populateClassAssignmentOptions();
+        populateClassAssignmentCampuses();
         classAssignmentClass.addEventListener('change', () => populateClassAssignmentSectionOptions());
+        classAssignmentTeacher.addEventListener('change', () => {
+            const teacher = assignmentData('eduCore_teachers').find((item) => String(item.id) === String(classAssignmentTeacher.value));
+            populateClassAssignmentCampuses(teacher?.campusName || '');
+        });
         renderClassAssignments();
         if (window.lucide) window.lucide.createIcons();
     </script>
